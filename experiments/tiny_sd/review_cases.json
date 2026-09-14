@@ -1,0 +1,17 @@
+{
+  "note": "평가 전용. 생성 실행기는 이 파일을 읽지 않는다. 속성 점수는 0=미반영, 1=부분/모호, 2=명확으로 수동 기록하며 게임 점수나 정확도 확률이 아니다.",
+  "cases": [
+    {"id": "fruit_red", "target": "사과", "forbidden": ["사과", "apple"], "attributes": ["빨간색", "둥근 과일"], "pair": "fruit_green"},
+    {"id": "fruit_green", "target": "사과", "forbidden": ["사과", "apple"], "attributes": ["초록색", "둥근 과일"]},
+    {"id": "fruit_curved", "target": "바나나", "forbidden": ["바나나", "banana"], "attributes": ["노란색", "길고 휜 형태", "과일"]},
+    {"id": "animal_ears", "target": "토끼", "forbidden": ["토끼", "rabbit", "bunny"], "attributes": ["긴 귀", "하얀 털", "작은 동물"]},
+    {"id": "rain_cover", "target": "우산", "forbidden": ["우산", "umbrella"], "attributes": ["파란 덮개", "펼친 형태", "길고 구부러진 손잡이"]},
+    {"id": "vessel_red", "target": "컵", "forbidden": ["컵", "cup", "mug"], "attributes": ["빨간색", "마시는 용기", "옆의 둥근 손잡이"], "pair": "vessel_blue"},
+    {"id": "vessel_blue", "target": "컵", "forbidden": ["컵", "cup", "mug"], "attributes": ["파란색", "마시는 용기", "옆의 둥근 손잡이"]},
+    {"id": "sphere_above", "target": "공", "forbidden": ["공", "ball"], "attributes": ["빨간 구체", "노란 상자", "구체가 상자 위"], "pair": "sphere_below"},
+    {"id": "sphere_below", "target": "공", "forbidden": ["공", "ball"], "attributes": ["빨간 구체", "노란 상자", "구체가 상자 아래"]},
+    {"id": "sphere_stripes", "target": "공", "forbidden": ["공", "ball"], "attributes": ["파란 구체", "줄무늬 있음"], "pair": "sphere_no_stripes"},
+    {"id": "sphere_no_stripes", "target": "공", "forbidden": ["공", "ball"], "attributes": ["파란 구체", "줄무늬 없음"]},
+    {"id": "vessels_two", "target": "컵", "forbidden": ["컵", "cup", "mug"], "attributes": ["빨간 용기", "각각 손잡이", "정확히 두 개"]}
+  ]
+}

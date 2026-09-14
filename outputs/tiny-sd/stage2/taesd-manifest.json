@@ -1,0 +1,34 @@
+{
+  "repo": "madebyollin/taesd",
+  "revision": "614f76814bbe30edbe2e627ace1c2234c81a2c0e",
+  "checked_utc": "2026-09-13T09:33:35.869922+00:00",
+  "license": "MIT",
+  "license_source": "https://github.com/madebyollin/taesd/blob/main/LICENSE",
+  "license_sha256": "261497cf8e9ed613ed1fa5ddf48af32cdf50545b2ccd9edd7eacc91fb9255d6e",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1315,
+      "sha256": "929bdbabc7bbfa10e647b90767e962dbf8823537f9cc86e648fef334bed3bd10",
+      "url": "https://huggingface.co/madebyollin/taesd/resolve/614f76814bbe30edbe2e627ace1c2234c81a2c0e/README.md"
+    },
+    {
+      "path": "config.json",
+      "bytes": 597,
+      "sha256": "3ebefd1aa96ac474cc6430fe6ea81febccf7ee82461715691ee9315c884adeef",
+      "url": "https://huggingface.co/madebyollin/taesd/resolve/614f76814bbe30edbe2e627ace1c2234c81a2c0e/config.json"
+    },
+    {
+      "path": "diffusion_pytorch_model.safetensors",
+      "bytes": 9793292,
+      "sha256": "db169d69145ec4ff064e49d99c95fa05d3eb04ee453de35824a6d0f325513549",
+      "url": "https://huggingface.co/madebyollin/taesd/resolve/614f76814bbe30edbe2e627ace1c2234c81a2c0e/diffusion_pytorch_model.safetensors"
+    },
+    {
+      "path": "taesd_decoder.safetensors",
+      "bytes": 4895612,
+      "sha256": "f0fb51dd10d41c26612c070fa0b52ea0215a5ff90792134b4971109dd713c019",
+      "url": "https://huggingface.co/madebyollin/taesd/resolve/614f76814bbe30edbe2e627ace1c2234c81a2c0e/taesd_decoder.safetensors"
+    }
+  ]
+}

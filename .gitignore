@@ -1,0 +1,59 @@
+# Local Python environments and caches.
+.venv*/
+venv/
+.cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Downloaded/converted models and generated build or test artifacts.
+/models/
+/artifacts/
+/build/
+/dist/
+**/[Bb]in/
+**/[Oo]bj/
+**/TestResults/
+*.log
+*.partial
+*.tmp
+*.dmp
+
+# Local credentials and IDE/OS state. Keep shareable example configuration.
+.env
+.env.*
+!.env.example
+!.env.sample
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Outputs are local by default: images, latents, profiles, execution snapshots,
+# machine inventories and intermediate measurements must not enter Git.
+# Keep only reviewed reports, pinned model provenance and license notices.
+/outputs/*
+!/outputs/tiny-sd/
+/outputs/tiny-sd/*
+!/outputs/tiny-sd/BASELINE_REPORT.md
+!/outputs/tiny-sd/model-manifest.json
+!/outputs/tiny-sd/provenance.json
+!/outputs/tiny-sd/upstream-distill-sd-LICENSE.txt
+!/outputs/tiny-sd/stage2/
+/outputs/tiny-sd/stage2/*
+!/outputs/tiny-sd/stage2/COMPRESSION_REPORT.md
+!/outputs/tiny-sd/stage2/WORKSPACE_SIZE.md
+!/outputs/tiny-sd/stage2/taesd-manifest.json
+!/outputs/tiny-sd/stage2/variant-manifests.json
+!/outputs/tiny-sd/stage2/TAESD_LICENSE.txt
+!/outputs/tiny-sd/stage2/ONNXRuntime_LICENSE.txt
+!/outputs/tiny-sd/stage2/ONNXRuntime_ThirdPartyNotices.txt

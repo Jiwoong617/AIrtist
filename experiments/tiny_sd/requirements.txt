@@ -1,0 +1,9 @@
+# Python 3.12; install torch==2.8.0 from the official cu126 index first.
+diffusers==0.35.1
+transformers==4.56.2
+accelerate==1.10.1
+huggingface-hub==0.34.4
+safetensors==0.6.2
+numpy==2.2.6
+Pillow==11.3.0
+psutil==7.0.0

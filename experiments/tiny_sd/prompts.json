@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "style": "simple flat 2D illustration, plain background",
+  "negative_prompt": "",
+  "cases": [
+    {"id": "fruit_red", "ko": "아삭아삭하고 빨간 둥근 과일", "en": "a crunchy red round fruit"},
+    {"id": "fruit_green", "ko": "아삭아삭하고 초록색 둥근 과일", "en": "a crunchy green round fruit"},
+    {"id": "fruit_curved", "ko": "노랗고 길쭉하게 휘어진 껍질을 벗겨 먹는 과일", "en": "a yellow elongated curved fruit that is peeled before eating"},
+    {"id": "animal_ears", "ko": "귀가 길고 하얀 털을 가진 작은 동물", "en": "a small animal with long ears and white fur"},
+    {"id": "rain_cover", "ko": "비를 막는 파란색 펼친 덮개와 길고 구부러진 손잡이", "en": "an open blue cover that keeps rain off, with a long curved handle"},
+    {"id": "vessel_red", "ko": "옆에 둥근 손잡이가 달린 빨간색 마시는 용기", "en": "a red drinking vessel with a round handle on its side"},
+    {"id": "vessel_blue", "ko": "옆에 둥근 손잡이가 달린 파란색 마시는 용기", "en": "a blue drinking vessel with a round handle on its side"},
+    {"id": "sphere_above", "ko": "노란 상자 위에 있는 빨간 구체", "en": "a red sphere above a yellow box"},
+    {"id": "sphere_below", "ko": "노란 상자 아래에 있는 빨간 구체", "en": "a red sphere below a yellow box"},
+    {"id": "sphere_stripes", "ko": "줄무늬가 있는 파란 구체", "en": "a blue sphere with stripes"},
+    {"id": "sphere_no_stripes", "ko": "줄무늬가 없는 파란 구체", "en": "a blue sphere without stripes"},
+    {"id": "vessels_two", "ko": "각각 옆에 둥근 손잡이가 달린 빨간색 마시는 용기 두 개", "en": "two red drinking vessels, each with a round handle on its side"}
+  ]
+}

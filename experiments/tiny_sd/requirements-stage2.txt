@@ -1,0 +1,6 @@
+-r requirements.txt
+onnx==1.19.0
+onnxruntime-directml==1.22.0
+protobuf==6.32.1
+ml_dtypes==0.5.3
+optimum-quanto==0.2.7

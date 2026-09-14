@@ -1,0 +1,71 @@
+{
+  "taesd-decoder": {
+    "source": "madebyollin/taesd",
+    "revision": "614f76814bbe30edbe2e627ace1c2234c81a2c0e",
+    "scaling_factor": 1.0,
+    "precision": "FP32",
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 796,
+        "sha256": "2c09bade9de5809c52d56b58eeab28d1c36c4dc12fcbdc1b22c611159718f1d0"
+      },
+      {
+        "path": "decoder.safetensors",
+        "bytes": 4896076,
+        "sha256": "d3ad9a482e137b6292496568b6475cccc5cd9c68bae6b13f891cd69b5a7a7f90"
+      },
+      {
+        "path": "NOTICE.txt",
+        "bytes": 137,
+        "sha256": "f609446f108072c2b229417b15d8978442ed52a7ea7adc6ca6a12f89172d93f0"
+      }
+    ],
+    "required_bytes": 4897009,
+    "full_vs_decoder_only_exact_equal": true
+  },
+  "unet-int8": {
+    "source": "segmind/tiny-sd",
+    "revision": "cad0bd7495fa6c4bcca01b19a723dc91627fe84f",
+    "method": "optimum-quanto 0.2.7 qint8 weight-only",
+    "activations": "FP32",
+    "exclude": [
+      "conv_in",
+      "conv_out",
+      "time_embedding.*"
+    ],
+    "quantization_map_entries": 147,
+    "quantized_modules": 147,
+    "storage_dtypes": {
+      "torch.float16": 505,
+      "torch.int8": 147,
+      "torch.float32": 147
+    },
+    "lossless_fp16_storage_tensor_count": 505,
+    "conversion_seconds": 1.5000588999973843,
+    "files": [
+      {
+        "path": "config.json",
+        "bytes": 1876,
+        "sha256": "89fcbc4a622d136ce8205f890ad8b61236232db12a0bfb67c25b7b05c33e4fb6"
+      },
+      {
+        "path": "model.safetensors",
+        "bytes": 326391300,
+        "sha256": "eaa1910e2832fbc15e28f482c1c40d508746a3a747e46849ee7643911c8bc42f"
+      },
+      {
+        "path": "NOTICE.txt",
+        "bytes": 217,
+        "sha256": "8e7e94e4d899d624aa396d40f50972cb8dac898d6bceecdd2ccd00447228c725"
+      },
+      {
+        "path": "quantization_map.json",
+        "bytes": 16857,
+        "sha256": "52b3fdf56c3902bfe8ff475ac135226bd64f62952dafff22952bf39dc73f010a"
+      }
+    ],
+    "required_bytes": 326410250,
+    "checkpoint_round_trip_exact_equal": true
+  }
+}

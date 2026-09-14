@@ -1,0 +1,112 @@
+{
+  "repo": "segmind/tiny-sd",
+  "revision": "cad0bd7495fa6c4bcca01b19a723dc91627fe84f",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 1512,
+      "sha256": "205a1eccfad2a1999a6d29e8fbe106da1b39028bd1da0936a4a423a288843ef0",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/README.md",
+      "inference_required": false
+    },
+    {
+      "path": "model_index.json",
+      "bytes": 584,
+      "sha256": "7e6de3ddb77ce79e23a68b8d946b413eabe958a7affbda0f5297e78824377268",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/model_index.json",
+      "inference_required": true
+    },
+    {
+      "path": "scheduler/scheduler_config.json",
+      "bytes": 691,
+      "sha256": "ea897eb6e9c5e7dc3e02121dcb9ae6ac3cd97c0cd59bf750f6f3058a3e4d02dc",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/scheduler/scheduler_config.json",
+      "inference_required": true
+    },
+    {
+      "path": "text_encoder/config.json",
+      "bytes": 722,
+      "sha256": "e05f77e7bfcd3c155689d90bd3686d36f9ec0d43a4435cf8336198ee3e7c8871",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/text_encoder/config.json",
+      "inference_required": true
+    },
+    {
+      "path": "text_encoder/pytorch_model.bin",
+      "bytes": 246187869,
+      "sha256": "f99d8915149c782551f7d14aae5ca0b6e76a6e94d30e5dc86a349b228fbf92ad",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/text_encoder/pytorch_model.bin",
+      "inference_required": true
+    },
+    {
+      "path": "tokenizer/merges.txt",
+      "bytes": 524619,
+      "sha256": "9fd691f7c8039210e0fced15865466c65820d09b63988b0174bfe25de299051a",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/tokenizer/merges.txt",
+      "inference_required": true
+    },
+    {
+      "path": "tokenizer/special_tokens_map.json",
+      "bytes": 472,
+      "sha256": "c4864a9376a8401918425bed71fc14fc0e81f9b59ec45c1cf96cccb2df508eac",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/tokenizer/special_tokens_map.json",
+      "inference_required": true
+    },
+    {
+      "path": "tokenizer/tokenizer_config.json",
+      "bytes": 737,
+      "sha256": "19d7b034cb0cc3ce9766c2231373ab8aa8991fc72e2c8f76558bfaae3de0d563",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/tokenizer/tokenizer_config.json",
+      "inference_required": true
+    },
+    {
+      "path": "tokenizer/vocab.json",
+      "bytes": 1059962,
+      "sha256": "e089ad92ba36837a0d31433e555c8f45fe601ab5c221d4f607ded32d9f7a4349",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/tokenizer/vocab.json",
+      "inference_required": true
+    },
+    {
+      "path": "unet/config.json",
+      "bytes": 755,
+      "sha256": "55326b8bef1a709254cbb66fdadef156bbe81c011a6be67638a73026be680929",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/unet/config.json",
+      "inference_required": true
+    },
+    {
+      "path": "unet/diffusion_pytorch_model.bin",
+      "bytes": 646923637,
+      "sha256": "c9b63e57cb1479c946c73bf5484bc1a823dbe565158ea0ee40015a18844d9f29",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/unet/diffusion_pytorch_model.bin",
+      "inference_required": true
+    },
+    {
+      "path": "vae/config.json",
+      "bytes": 759,
+      "sha256": "7abe76f4219f3f523e089a028730103474449c74398e1537dc2338c365a11e41",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/vae/config.json",
+      "inference_required": true
+    },
+    {
+      "path": "vae/diffusion_pytorch_model.bin",
+      "bytes": 167407857,
+      "sha256": "279228e5296858f5d330db506ff6a51fdcad0d69f87634b5e9133406110af9bf",
+      "upstream_hash_verified": true,
+      "url": "https://huggingface.co/segmind/tiny-sd/resolve/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/vae/diffusion_pytorch_model.bin",
+      "inference_required": true
+    }
+  ],
+  "required_bytes": 1062108664,
+  "weights_bytes": 1060519363
+}
