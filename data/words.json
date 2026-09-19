@@ -1,0 +1,10 @@
+[
+  { "id": "apple", "korean": "사과", "meaning": "빨간색 또는 초록색의 둥근 과일", "english": "apple", "aliases": ["사과", "apple", "apples", "애플"] },
+  { "id": "banana", "korean": "바나나", "meaning": "길고 휘어진 노란 과일", "english": "banana", "aliases": ["바나나", "banana", "bananas"] },
+  { "id": "rabbit", "korean": "토끼", "meaning": "긴 귀를 가진 작은 포유류", "english": "rabbit", "aliases": ["토끼", "rabbit", "rabbits", "bunny", "래빗"] },
+  { "id": "umbrella", "korean": "우산", "meaning": "비를 막기 위해 손에 드는 물건", "english": "umbrella", "aliases": ["우산", "umbrella", "umbrellas"] },
+  { "id": "cup", "korean": "컵", "meaning": "음료를 담는 작은 용기", "english": "cup", "aliases": ["컵", "cup", "cups", "mug", "머그"] },
+  { "id": "tiger", "korean": "호랑이", "meaning": "검은 줄무늬가 있는 큰 고양잇과 동물", "english": "tiger", "aliases": ["호랑이", "범", "tiger", "tigers", "타이거"] },
+  { "id": "dog", "korean": "강아지", "meaning": "반려동물로 기르는 개", "english": "dog", "aliases": ["강아지", "개", "dog", "dogs", "puppy", "퍼피"] },
+  { "id": "car", "korean": "자동차", "meaning": "도로에서 타고 다니는 네 바퀴 탈것", "english": "car", "aliases": ["자동차", "승용차", "car", "cars", "automobile"] }
+]

@@ -16,13 +16,51 @@ htmlcov/
 /artifacts/
 /build/
 /dist/
+# Test packages, including testbuild-new, testbuild_01 and TestBuild.
+[Tt]est[Bb]uild*/
+/publish/
+/publish-*/
 **/[Bb]in/
 **/[Oo]bj/
 **/TestResults/
+# Runtime binaries, installers and symbols accidentally copied outside build folders.
+*.exe
+*.dll
+*.pdb
+*.lib
+*.msi
+*.msix
+*.msixbundle
+*.appx
+*.appxbundle
+*.nupkg
+*.snupkg
+# Model weights and experiment tensors belong in local model/output folders.
+*.onnx
+*.onnx.data
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.gguf
+*.bin
+*.npy
+*.npz
+*.f32
+# Archives of local application packages.
+[Tt]est[Bb]uild*.zip
+[Tt]est[Bb]uild*.7z
+[Tt]est[Bb]uild*.tar
+[Tt]est[Bb]uild*.tar.gz
+AIrtist-preview*.zip
+AIrtist-preview*.7z
 *.log
+*.binlog
+*.trx
 *.partial
 *.tmp
 *.dmp
+onnxruntime_profile_*.json
 
 # Local credentials and IDE/OS state. Keep shareable example configuration.
 .env
@@ -30,10 +68,23 @@ htmlcov/
 !.env.example
 !.env.sample
 .vs/
+.idea/
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+*.DotSettings.user
+# Local deployment profiles, credentials and private signing keys.
+*.pubxml
+*.pubxml.user
+*.publishsettings
+secrets.json
+appsettings.Local.json
+appsettings.*.local.json
+*.pfx
+*.p12
+*.key
+*.pem
 Thumbs.db
 Desktop.ini
 .DS_Store

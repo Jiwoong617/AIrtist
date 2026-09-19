@@ -1,0 +1,5 @@
+-r ../tiny_sd/requirements-stage2.txt
+sentencepiece==0.2.1
+sacremoses==0.1.1
+joblib==1.5.2
+click==8.1.8
