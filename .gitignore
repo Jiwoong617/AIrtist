@@ -79,6 +79,11 @@ onnxruntime_profile_*.json
 *.pubxml.user
 *.publishsettings
 secrets.json
+# EOS SDK downloads and per-developer connection credentials.
+/sdks/
+eos.local.json
+EOS-SDK*.zip
+EOSSDK*.zip
 appsettings.Local.json
 appsettings.*.local.json
 *.pfx

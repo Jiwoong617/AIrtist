@@ -1,0 +1,64 @@
+<Window x:Class="AIrtist.App.VotingWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AIrtist · 투표 미리보기" Width="1120" Height="820" MinWidth="820" MinHeight="650" Background="#111824" Foreground="{StaticResource Ink}" FontFamily="Malgun Gothic" WindowStartupLocation="CenterOwner">
+  <Grid x:Name="Page" Margin="28" Background="#111824">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,18">
+      <TextBlock Text="그림을 보고 한 표" FontSize="28" FontWeight="Bold"/>
+      <TextBlock Text="투표 미리보기 · 한 PC에서 참가자 역할을 바꿔 확인합니다. 온라인 연결은 아직 없습니다." TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8,0,0"/>
+    </StackPanel>
+    <Border Grid.Row="1" Background="#1B2534" CornerRadius="14" Padding="18" Margin="0,0,0,16">
+      <StackPanel>
+        <StackPanel x:Name="SetupPanel">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="참가자 수" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <ComboBox x:Name="PlayerCount" Width="75" SelectedIndex="1" SelectionChanged="CountChanged" AutomationProperties.Name="미리보기 참가자 수"><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/><ComboBoxItem Content="4"/></ComboBox>
+          </StackPanel>
+          <ItemsControl x:Name="Imports">
+            <ItemsControl.ItemTemplate><DataTemplate>
+              <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="100"/><ColumnDefinition Width="*"/><ColumnDefinition Width="140"/></Grid.ColumnDefinitions>
+                <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding Label}" TextTrimming="CharacterEllipsis" Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                <Button Grid.Column="2" Content="그림 선택" Tag="{Binding Id}" Click="ImportClicked" Padding="14,7"/>
+              </Grid>
+            </DataTemplate></ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="생성한 PNG를 선택하세요. 최근 그림은 플레이어 1에 가져옵니다. 이름은 공개되며, 그림이 없는 참가자도 투표할 수 있습니다." TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,4,0,12"/>
+          <Button x:Name="StartVoting" Content="그림을 모아 투표 시작" Click="StartClicked" IsEnabled="False" HorizontalAlignment="Left"/>
+        </StackPanel>
+        <Grid x:Name="VotingControls" Visibility="Collapsed">
+          <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="현재 역할" VerticalAlignment="Center" Margin="0,0,12,0"/>
+            <ComboBox x:Name="Viewer" Width="140" DisplayMemberPath="Name" SelectedValuePath="Id" SelectionChanged="ViewerChanged" AutomationProperties.Name="현재 투표 참가자"/>
+          </StackPanel>
+          <Button x:Name="CloseVoting" Grid.Column="1" Content="방장: 투표 마감" Click="CloseClicked" Padding="14,8"/>
+        </Grid>
+      </StackPanel>
+    </Border>
+    <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
+        <TextBlock x:Name="Status" Text="두 사람 이상의 그림을 선택하면 시작할 수 있어요." FontSize="17" TextWrapping="Wrap" Margin="0,0,0,14"/>
+        <ItemsControl x:Name="Gallery">
+          <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate><DataTemplate>
+            <Border Width="246" Margin="0,0,14,14" Padding="14" Background="#1B2534" CornerRadius="14" BorderBrush="{Binding Outline}" BorderThickness="2">
+              <StackPanel>
+                <Image Source="{Binding Preview}" Width="214" Height="214" Stretch="Uniform"/>
+                <TextBlock Text="{Binding OwnerLabel}" FontSize="16" FontWeight="Bold" Margin="0,12,0,6" TextWrapping="Wrap"/>
+                <TextBlock Text="{Binding Note}" Foreground="{StaticResource Muted}" TextWrapping="Wrap" MinHeight="36"/>
+                <Button Content="{Binding Action}" IsEnabled="{Binding CanVote}" Tag="{Binding Id}" Click="VoteClicked" Margin="0,8,0,0" Padding="12,9"/>
+              </StackPanel>
+            </Border>
+          </DataTemplate></ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </ScrollViewer>
+    <StackPanel Grid.Row="3" Margin="0,12,0,0">
+      <TextBlock x:Name="Notice" TextWrapping="Wrap" Foreground="#FFCCA3" Margin="0,0,0,8"/>
+      <DockPanel LastChildFill="True">
+        <Button Content="새 미리보기" Click="ResetClicked" DockPanel.Dock="Right" Padding="16,8" Margin="16,0,0,0" Background="#344052" Foreground="#EDF1F6"/>
+        <TextBlock Text="임시 규칙: 60초 · 전원 투표 시 종료 · 확정 후 변경 불가&#10;자기 그림 투표 금지 · 동점은 공동 최다 득표 · 미투표는 0표" TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+      </DockPanel>
+    </StackPanel>
+  </Grid>
+</Window>

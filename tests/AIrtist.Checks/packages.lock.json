@@ -45,10 +45,14 @@
       "airtist.core": {
         "type": "Project",
         "dependencies": {
+          "AIrtist.Transport": "[1.0.0, )",
           "Microsoft.AI.DirectML": "[1.15.4, )",
           "Microsoft.ML.OnnxRuntime.DirectML": "[1.22.0, )",
           "Microsoft.ML.Tokenizers": "[2.0.0, )"
         }
+      },
+      "airtist.transport": {
+        "type": "Project"
       }
     }
   }

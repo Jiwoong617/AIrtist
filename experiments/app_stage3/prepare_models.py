@@ -99,9 +99,6 @@ def translation():
     print("translation bytes", compact.stat().st_size, flush=True)
 
 
-def scoring():
-    from prepare_scoring import main
-    main()
 
 
 def generation():
@@ -151,7 +148,7 @@ def generation():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("component", choices=["translation", "scoring", "generation"])
+    parser.add_argument("component", choices=["translation", "generation"])
     args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
     RESULTS.mkdir(parents=True, exist_ok=True)

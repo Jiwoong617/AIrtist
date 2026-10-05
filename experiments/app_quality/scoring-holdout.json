@@ -1,0 +1,128 @@
+[
+  {
+    "name": "blank-gray",
+    "category": "unrelated",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/blank-gray.png"
+  },
+  {
+    "name": "blank-blue",
+    "category": "unrelated",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/blank-blue.png"
+  },
+  {
+    "name": "noise-711",
+    "category": "unrelated",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/noise-711.png"
+  },
+  {
+    "name": "noise-917",
+    "category": "unrelated",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/noise-917.png"
+  },
+  {
+    "name": "text-apple-red",
+    "category": "text-only",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/text-apple-red.png"
+  },
+  {
+    "name": "text-rabbit-blue",
+    "category": "text-only",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/text-rabbit-blue.png"
+  },
+  {
+    "name": "text-korean",
+    "category": "text-only",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/text-korean.png"
+  },
+  {
+    "name": "text-two-lines",
+    "category": "text-only",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/text-two-lines.png"
+  },
+  {
+    "name": "green-apple",
+    "category": "controlled-drawing",
+    "expected": "apple",
+    "path": "outputs/app-quality/holdout/green-apple.png"
+  },
+  {
+    "name": "purple-cup",
+    "category": "controlled-drawing",
+    "expected": "cup",
+    "path": "outputs/app-quality/holdout/purple-cup.png"
+  },
+  {
+    "name": "thin-cup",
+    "category": "controlled-drawing",
+    "expected": "cup",
+    "path": "outputs/app-quality/holdout/thin-cup.png"
+  },
+  {
+    "name": "yellow-banana",
+    "category": "controlled-drawing",
+    "expected": "banana",
+    "path": "outputs/app-quality/holdout/yellow-banana.png"
+  },
+  {
+    "name": "red-umbrella",
+    "category": "controlled-drawing",
+    "expected": "umbrella",
+    "path": "outputs/app-quality/holdout/red-umbrella.png"
+  },
+  {
+    "name": "blue-car",
+    "category": "controlled-drawing",
+    "expected": "car",
+    "path": "outputs/app-quality/holdout/blue-car.png"
+  },
+  {
+    "name": "gold-pear",
+    "category": "near-wrong",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/gold-pear.png"
+  },
+  {
+    "name": "cyan-bottle",
+    "category": "near-wrong",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/cyan-bottle.png"
+  },
+  {
+    "name": "red-bowl",
+    "category": "near-wrong",
+    "expected": null,
+    "path": "outputs/app-quality/holdout/red-bowl.png"
+  },
+  {
+    "name": "generated-rabbit-other-seed",
+    "category": "generated",
+    "expected": "rabbit",
+    "path": "outputs/tiny-sd/runs/baseline-fp32-20260913-01/images/016_quality_animal_ears_en_20260913.png"
+  },
+  {
+    "name": "generated-cup-two-handles",
+    "category": "generated",
+    "expected": "cup",
+    "path": "outputs/tiny-sd/runs/baseline-fp32-20260913-01/images/030_quality_vessel_blue_en_42.png"
+  },
+  {
+    "name": "generated-lemon",
+    "category": "near-wrong",
+    "expected": null,
+    "path": "outputs/tiny-sd/runs/baseline-fp32-20260913-01/images/014_quality_fruit_curved_en_42.png"
+  },
+  {
+    "name": "generated-ring",
+    "category": "unrelated",
+    "expected": null,
+    "path": "outputs/tiny-sd/runs/baseline-fp32-20260913-01/images/022_quality_rain_cover_en_42.png"
+  }
+]

@@ -10,6 +10,18 @@ public sealed class LocalGenerator(RuntimeAssets assets)
     public byte[] Generate(string description, int seed, CancellationToken token, Action<string>? progress = null,
         string? profileDirectory = null, float[]? initialLatents = null)
     {
+        try { return GenerateCore(description, seed, token, progress, profileDirectory, initialLatents); }
+        catch (OnnxRuntimeException)
+        {
+            // All using scopes in GenerateCore have released their native sessions.
+            OrtSessions.InvalidateGpu();
+            throw;
+        }
+    }
+
+    private byte[] GenerateCore(string description, int seed, CancellationToken token, Action<string>? progress,
+        string? profileDirectory, float[]? initialLatents)
+    {
         var settings = assets.Read<GenerationSettings>("generation/settings.json");
         var scheduler = new DpmScheduler(assets.Read<SchedulerData>("generation/scheduler.json"));
         if (settings.Width != 512 || settings.Height != 512 || settings.Steps != 25 || scheduler.Steps.Length != 25)
@@ -22,7 +34,7 @@ public sealed class LocalGenerator(RuntimeAssets assets)
         progress?.Invoke("묘사를 그림으로 준비하고 있어요");
         using (var text = OrtSessions.Open(assets.File("generation/text_encoder-compact.onnx"), true, Profile("text")))
         {
-            embeddings = OrtSessions.Run(text, [NamedOnnxValue.CreateFromTensor("input_ids", new DenseTensor<long>(ids, [2, 77]))], token);
+            embeddings = OrtSessions.Run(text, [NamedOnnxValue.CreateFromTensor("input_ids", new DenseTensor<long>(ids, [2, 77]))], token, terminateOnCancellation: false);
             End(text);
         }
         float[] latents = initialLatents?.ToArray() ?? Gaussian(seed, 4 * 64 * 64);
@@ -38,7 +50,7 @@ public sealed class LocalGenerator(RuntimeAssets assets)
                     NamedOnnxValue.CreateFromTensor("sample", new DenseTensor<float>(batch, [2, 4, 64, 64])),
                     NamedOnnxValue.CreateFromTensor("timestep", new DenseTensor<float>(new[] { (float)scheduler.Steps[step].Timestep }, [1])),
                     NamedOnnxValue.CreateFromTensor("encoder_hidden_states", new DenseTensor<float>(embeddings, [2, 77, 768]))
-                ], token);
+                ], token, terminateOnCancellation: false);
                 var guided = new float[latents.Length];
                 for (int i = 0; i < guided.Length; i++) guided[i] = noise[i] + settings.Guidance * (noise[i + guided.Length] - noise[i]);
                 latents = scheduler.Step(step, latents, guided);
@@ -47,7 +59,7 @@ public sealed class LocalGenerator(RuntimeAssets assets)
         }
         progress?.Invoke("그림을 완성하고 있어요");
         using var decoder = OrtSessions.Open(assets.File("generation/taesd_decoder-compact.onnx"), true, Profile("decoder"));
-        float[] decoded = OrtSessions.Run(decoder, [NamedOnnxValue.CreateFromTensor("latents", new DenseTensor<float>(latents, [1, 4, 64, 64]))], token);
+        float[] decoded = OrtSessions.Run(decoder, [NamedOnnxValue.CreateFromTensor("latents", new DenseTensor<float>(latents, [1, 4, 64, 64]))], token, terminateOnCancellation: false);
         End(decoder);
         return ImageCodec.Png(decoded);
     }

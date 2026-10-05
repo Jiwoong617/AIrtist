@@ -6,7 +6,6 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 TRANSLATION_REVISION = "e42d1f41b66194e6d10512f8a27bebc1f4f5097e"
-TINYCLIP_REVISION = "a2a8c6eaa2549ad66eb7c31b85022bf58273a26c"
 
 
 def download(url, destination, expected=None):
@@ -35,15 +34,7 @@ def main():
     for name in ["README.md", "config.json", "generation_config.json", "pytorch_model.bin", "source.spm", "target.spm", "tokenizer_config.json", "vocab.json"]:
         entry = download(f"https://huggingface.co/{repo}/resolve/{TRANSLATION_REVISION}/{name}", folder / name, files[name].get("lfs", {}).get("sha256"))
         manifest["translation"]["files"][name] = entry
-    repo = "wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M"
-    with urllib.request.urlopen(f"https://huggingface.co/api/models/{repo}/revision/{TINYCLIP_REVISION}?blobs=true", timeout=60) as response:
-        info = json.load(response)
-    files = {row["rfilename"]: row for row in info["siblings"]}
-    manifest["scoring"] = {"repo": repo, "revision": TINYCLIP_REVISION, "files": {}}
-    for name in ["README.md", "config.json", "model.safetensors", "preprocessor_config.json", "tokenizer.json"]:
-        manifest["scoring"]["files"][name] = download(f"https://huggingface.co/{repo}/resolve/{TINYCLIP_REVISION}/{name}", ROOT / "models/tinyclip" / TINYCLIP_REVISION / name, files[name].get("lfs", {}).get("sha256"))
     for name, url in {
-        "TinyCLIP_LICENSE.txt": "https://raw.githubusercontent.com/microsoft/Cream/main/TinyCLIP/LICENSE",
         "Apache-2.0.txt": "https://www.apache.org/licenses/LICENSE-2.0.txt",
         "CLIP_LICENSE.txt": "https://raw.githubusercontent.com/openai/CLIP/main/LICENSE",
         "Google.Protobuf_LICENSE.txt": "https://raw.githubusercontent.com/protocolbuffers/protobuf/v30.2/LICENSE",

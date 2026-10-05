@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>$(DefineConstants);EOS_PLATFORM_WINDOWS_64</DefineConstants>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <EosSdkDirectory Condition="'$(EosSdkDirectory)' == ''">$(MSBuildThisFileDirectory)../../sdks/eos</EosSdkDirectory>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="CallbackLifetime.cs" />
+    <Compile Include="$(EosSdkDirectory)/SDK/Source/Core/**/*.cs" />
+    <Compile Include="$(EosSdkDirectory)/SDK/Source/Generated/**/*.cs" />
+    <Content Include="$(EosSdkDirectory)/SDK/Bin/EOSSDK-Win64-Shipping.dll" Link="EOSSDK-Win64-Shipping.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(EosSdkDirectory)/ThirdPartyNotices/ThirdPartySoftwareNotice.txt" Link="licenses/EOS-ThirdPartySoftwareNotice.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="ValidateEosSdk" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(EosSdkDirectory)/SDK/Source/Generated/Connect/ConnectInterface.cs')" Text="EOS C# SDK가 없습니다. docs/EOS_SETUP.md를 따라 SDK 1.19.2.1을 준비하세요." />
+    <Error Condition="!Exists('$(EosSdkDirectory)/ThirdPartyNotices/ThirdPartySoftwareNotice.txt')" Text="EOS SDK의 ThirdPartyNotices 파일이 필요합니다." />
+    <GetFileHash Files="$(EosSdkDirectory)/SDK/Bin/EOSSDK-Win64-Shipping.dll" Algorithm="SHA256">
+      <Output TaskParameter="Hash" PropertyName="EosNativeHash" />
+    </GetFileHash>
+    <Error Condition="'$(EosNativeHash)' != 'AB25AF350C48856633D671A16E8469277F9ACEE39186D69FE5B2A26100D738E8'" Text="검증한 EOS 1.19.2.1 Win64 DLL과 해시가 다릅니다. SDK 변경은 재검증 후 반영하세요." />
+  </Target>
+</Project>

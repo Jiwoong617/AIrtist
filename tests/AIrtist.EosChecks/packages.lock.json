@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-windows7.0": {
+      "airtist.eos": {
+        "type": "Project",
+        "dependencies": {
+          "AIrtist.EosSdk": "[1.0.0, )",
+          "AIrtist.Transport": "[1.0.0, )"
+        }
+      },
+      "airtist.eossdk": {
+        "type": "Project"
+      },
+      "airtist.transport": {
+        "type": "Project"
+      }
+    }
+  }
+}

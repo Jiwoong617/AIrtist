@@ -1,0 +1,49 @@
+<Window x:Class="AIrtist.App.OnlineRoomWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AIrtist · 온라인 방" Width="880" Height="740" MinWidth="720" MinHeight="620" Background="#101722" Foreground="#EDF1F6" WindowStartupLocation="CenterOwner" FontFamily="Malgun Gothic">
+  <Grid x:Name="Page" Margin="28" Background="#101722">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,20">
+      <TextBlock Text="함께 그리기" FontSize="28" FontWeight="Bold"/>
+      <TextBlock Text="방에 모여 같은 제시어를 묘사하고, 서로의 그림에 투표하세요." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+    </StackPanel>
+    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+      <StackPanel>
+        <Border Background="#1B2937" CornerRadius="12" Padding="18" Margin="0,0,0,16">
+          <StackPanel>
+            <TextBlock Text="접속 설정" FontSize="18" FontWeight="Bold"/>
+            <TextBlock Text="현재 개발용 온라인 화면입니다. 준비된 EOS 설정 파일이 필요합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,10"/>
+            <DockPanel><Button x:Name="Browse" DockPanel.Dock="Right" Content="파일 선택" Click="BrowseClicked" Padding="12,6" Margin="8,0,0,0"/>
+              <TextBox x:Name="SettingsPath" IsReadOnly="True" VerticalContentAlignment="Center" Padding="8" AutomationProperties.Name="EOS 설정 파일 경로"/>
+            </DockPanel>
+            <WrapPanel Margin="0,12,0,0">
+              <TextBlock Text="기기 표시 이름" VerticalAlignment="Center" Margin="0,0,10,0"/>
+              <TextBox x:Name="PlayerName" Text="플레이어" MaxLength="32" Width="150" Padding="8" Margin="0,0,12,0"/>
+              <Button x:Name="Connect" Content="접속" Click="ConnectClicked" Padding="18,8" Margin="0,0,8,0"/>
+              <Button x:Name="Leave" Content="접속 종료" Click="LeaveClicked" Padding="18,8" Background="#344052" Foreground="#EDF1F6" IsEnabled="False"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+        <Border Background="#1B2937" CornerRadius="12" Padding="18">
+          <StackPanel>
+            <WrapPanel Margin="0,0,0,12">
+              <TextBlock Text="방 정원" VerticalAlignment="Center" Margin="0,0,10,0"/>
+              <ComboBox x:Name="Capacity" Width="58" Margin="0,0,14,0" VerticalContentAlignment="Center"/>
+              <Button x:Name="Create" Content="방 만들기" Click="CreateClicked" Padding="14,8" Margin="0,0,8,0" IsEnabled="False"/>
+              <Button x:Name="Search" Content="방 검색" Click="SearchClicked" Padding="14,8" IsEnabled="False"/>
+            </WrapPanel>
+            <TextBlock Text="같은 모델·단어·규칙 버전의 방을 최대 20개 표시합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"/>
+            <ListBox x:Name="Rooms" Height="110" DisplayMemberPath="Label" Background="#101722" Foreground="#EDF1F6" BorderBrush="#344052" SelectionChanged="RoomChanged" AutomationProperties.Name="참가 가능한 방"/>
+            <Button x:Name="Join" Content="선택한 방 참가" Click="JoinClicked" HorizontalAlignment="Left" Padding="14,8" Margin="0,10,0,14" IsEnabled="False"/>
+            <TextBlock x:Name="Members" Text="아직 참가한 방이 없습니다." FontSize="16" TextWrapping="Wrap"/>
+            <TextBlock Text="참가자가 모두 모이면 각 PC에서 ‘연결 준비’를 눌러 주세요. 이후 입퇴장이 생기면 나간 뒤 다시 접속해야 합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,12"/>
+            <WrapPanel>
+              <Button x:Name="Prepare" Content="연결 준비" Click="PrepareClicked" Padding="14,8" Margin="0,0,8,0" IsEnabled="False"/>
+              <Button x:Name="OpenGame" Content="경기 대기방 열기" Click="OpenGameClicked" Padding="14,8" IsEnabled="False"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+    <TextBlock x:Name="Status" Grid.Row="2" TextWrapping="Wrap" Foreground="#A7E3C2" Margin="0,16,0,0" MinHeight="36"/>
+  </Grid>
+</Window>

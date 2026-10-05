@@ -14,5 +14,11 @@
     <AssemblyName>AIrtist</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
-  <ItemGroup><ProjectReference Include="../AIrtist.Core/AIrtist.Core.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AIrtist.Core/AIrtist.Core.csproj" />
+    <ProjectReference Include="../AIrtist.Eos/AIrtist.Eos.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="../../data/words.json" Link="data/words.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

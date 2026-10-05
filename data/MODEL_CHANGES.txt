@@ -1,0 +1,6 @@
+AIrtist drawing preview, 2026-09-22. No new model training.
+Tiny-SD: published U-Net weights stored as mixed INT8, FP32 computation, converted to ONNX. Original VAE replaced by published TAESD decoder.
+OPUS-MT ko-en: shared embedding reused, weights rounded to FP16 storage and cast to FP32 for inference. Greedy decoding.
+Scheduler coefficients derived from Diffusers 0.35.1 (Apache-2.0); generation CLIP BPE based on the published CLIP algorithm (MIT).
+Image scoring models and evaluation vectors are no longer distributed. The Tiny-SD generation text encoder and tokenizer remain required.
+Full Tiny-SD/TAESD original weight licenses remain applicable.

@@ -7,6 +7,8 @@
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../AIrtist.Transport/AIrtist.Transport.csproj" />
+    <EmbeddedResource Include="../../data/runtime-assets.json" LogicalName="AIrtist.RuntimeAssetLayout.json" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.DirectML" Version="1.22.0" />
     <PackageReference Include="Microsoft.AI.DirectML" Version="1.15.4" GeneratePathProperty="true" />
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />

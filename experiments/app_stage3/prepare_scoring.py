@@ -15,7 +15,7 @@ def main():
     torch.set_grad_enabled(False)
     torch.set_num_threads(6)
     source = ROOT / "models/tinyclip" / REVISION
-    folder = ROOT / "models/app-stage3/scoring"
+    folder = ROOT / "models/legacy-scoring/8m"
     results = ROOT / "outputs/app-stage3"
     folder.mkdir(parents=True, exist_ok=True)
     results.mkdir(parents=True, exist_ok=True)

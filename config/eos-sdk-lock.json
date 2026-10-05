@@ -1,0 +1,17 @@
+{
+  "sdkVersion": "1.19.2.1",
+  "runtimeVersion": "1.19.2.1-58105819",
+  "platform": "Windows x64",
+  "sourcePage": "https://onlineservices.epicgames.com/sdk?lang=ko",
+  "archiveUrl": "https://onlineservices.epicgames.com/api/cosmos/sdk/download?archive_id=903&archive_type=c_sharp",
+  "archiveBytes": 587320398,
+  "archiveSha256": "A4CA3F44FA08DDFCEAFCD0009585AAAC4C7728E6E195E5035863B9613E8976CD",
+  "nativeFile": "SDK/Bin/EOSSDK-Win64-Shipping.dll",
+  "nativeBytes": 19548600,
+  "nativeSha256": "AB25AF350C48856633D671A16E8469277F9ACEE39186D69FE5B2A26100D738E8",
+  "authenticodeSigner": "Epic Games Inc.",
+  "verifiedDate": "2026-09-29",
+  "agreementUrl": "https://onlineservices.epicgames.com/services/terms/agreements",
+  "thirdPartyNotices": "ThirdPartyNotices/ThirdPartySoftwareNotice.txt",
+  "redistributionReview": "2026-10-01 local test package: compiled managed/native SDK and third-party notices only; no SDK sources, samples, or Overlay installer. Public distribution EULA and account-holder agreement acceptance remain unverified. See docs/EOS_DISTRIBUTION_REPORT.md."
+}

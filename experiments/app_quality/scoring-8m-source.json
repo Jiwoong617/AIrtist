@@ -1,0 +1,31 @@
+{
+  "repo": "wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M",
+  "revision": "a2a8c6eaa2549ad66eb7c31b85022bf58273a26c",
+  "files": {
+    "README.md": {
+      "url": "https://huggingface.co/wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M/resolve/a2a8c6eaa2549ad66eb7c31b85022bf58273a26c/README.md",
+      "bytes": 5961,
+      "sha256": "f0358aa986c559a7d80a147b65c1c40892f14ba02920fa2a01903a2347b36f7f"
+    },
+    "config.json": {
+      "url": "https://huggingface.co/wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M/resolve/a2a8c6eaa2549ad66eb7c31b85022bf58273a26c/config.json",
+      "bytes": 4602,
+      "sha256": "c586d856dbd5589b67525db9e791ee0917402405672c7773aead373efb7d7bca"
+    },
+    "model.safetensors": {
+      "url": "https://huggingface.co/wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M/resolve/a2a8c6eaa2549ad66eb7c31b85022bf58273a26c/model.safetensors",
+      "bytes": 93812468,
+      "sha256": "9339ee3d736344d0ddcaa6c03edc9f89688f08caaea5401220885233da726fcc"
+    },
+    "preprocessor_config.json": {
+      "url": "https://huggingface.co/wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M/resolve/a2a8c6eaa2549ad66eb7c31b85022bf58273a26c/preprocessor_config.json",
+      "bytes": 316,
+      "sha256": "910e70b3956ac9879ebc90b22fb3bc8a75b6a0677814500101a4c072bd7857bd"
+    },
+    "tokenizer.json": {
+      "url": "https://huggingface.co/wkcn/TinyCLIP-ViT-8M-16-Text-3M-YFCC15M/resolve/a2a8c6eaa2549ad66eb7c31b85022bf58273a26c/tokenizer.json",
+      "bytes": 2224041,
+      "sha256": "b556ac8c99757ffb677208af34bc8c6721572114111a6e0aaf5fa69ff0b8d842"
+    }
+  }
+}

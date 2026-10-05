@@ -1,0 +1,57 @@
+{
+  "repo": "Helsinki-NLP/opus-mt-tc-big-ko-en",
+  "revision": "fa26583a41d95346933f26b4cb8f9b700da0d445",
+  "license": "cc-by-4.0",
+  "files": {
+    "README.md": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/README.md",
+      "bytes": 7866,
+      "sha256": "a7128281573f5f758c292bc5bf4bd073c2ee48b21951e6e7368e86daf2fdfb00"
+    },
+    "config.json": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/config.json",
+      "bytes": 1068,
+      "sha256": "5364df1626882820628dec67310bb7ca14c8938e9f2b0b7766cf4f051d188413"
+    },
+    "generation_config.json": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/generation_config.json",
+      "bytes": 293,
+      "sha256": "95b6219063f279c3b0ee22a19981d1afe6f3f52c16a08453eaddadc51b0ce4ad"
+    },
+    "model.safetensors": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/model.safetensors",
+      "bytes": 418346322,
+      "sha256": "6cad70c99aea2b7bdf888a3aca503a968132f92dc866f832ed7c4f6e3d36df07"
+    },
+    "source.spm": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/source.spm",
+      "bytes": 815483,
+      "sha256": "bcf0b63c9685de766ab3e10571a9a7f4a38eb39da51a4d64462757051d1986c7"
+    },
+    "target.spm": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/target.spm",
+      "bytes": 789870,
+      "sha256": "7188e2e643ef82257f2d0d5e2592185a42b0e472aff8ee6880331a0bff8904cd"
+    },
+    "tokenizer_config.json": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/tokenizer_config.json",
+      "bytes": 341,
+      "sha256": "30245e376433618a8ee3b4ff3b31d6b40324f730cfa9fca021022e4bd5235763"
+    },
+    "special_tokens_map.json": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/special_tokens_map.json",
+      "bytes": 65,
+      "sha256": "09059cedc26bc46bc09a52f05b92d4922e11917e87f3b92059bb1a63a59ab2c4"
+    },
+    "vocab.json": {
+      "url": "https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-ko-en/resolve/fa26583a41d95346933f26b4cb8f9b700da0d445/vocab.json",
+      "bytes": 743503,
+      "sha256": "0a5fc83e442a6efed9bba9e0a6cad4542dbcdc182082d39253959bdd5f556c7b"
+    }
+  },
+  "license_file": {
+    "url": "https://creativecommons.org/licenses/by/4.0/legalcode.txt",
+    "bytes": 18657,
+    "sha256": "9ba9550ad48438d0836ddab3da480b3b69ffa0aac7b7878b5a0039e7ab429411"
+  }
+}
