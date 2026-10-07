@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$PackageDirectory,
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
-    [ValidateSet('self-check', 'drawing-smoke', 'voting-smoke', 'round-smoke', 'match-smoke', 'lobby-smoke', 'online-smoke', 'online-live-smoke')][string]$Mode = 'drawing-smoke',
+    [ValidateSet('self-check', 'drawing-smoke', 'parameter-smoke', 'menu-smoke', 'voting-smoke', 'round-smoke', 'match-smoke', 'lobby-smoke', 'online-smoke', 'online-live-smoke')][string]$Mode = 'drawing-smoke',
     [string[]]$VotingImages,
     [string]$ModelDirectory,
     [string]$EosConfigPath
@@ -59,7 +59,7 @@ try {
     $result | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $outputPath 'process.json') -Encoding UTF8
     if ($exitCode -ne 0) { throw "App diagnostic failed with exit $exitCode; see status.json" }
     foreach ($name in @('coreclr.dll', 'clrjit.dll', 'onnxruntime.dll', 'DirectML.dll')) {
-        if ($Mode -in @('drawing-smoke', 'round-smoke', 'match-smoke') -and (-not $modules[$name] -or -not $modules[$name].StartsWith($packagePath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase))) {
+        if ($Mode -in @('drawing-smoke', 'parameter-smoke', 'menu-smoke', 'round-smoke', 'match-smoke') -and (-not $modules[$name] -or -not $modules[$name].StartsWith($packagePath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase))) {
             throw "Runtime was not observed in package: $name"
         }
     }

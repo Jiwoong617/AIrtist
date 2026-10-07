@@ -38,6 +38,23 @@ public partial class App : Application
         int overrideIndex = Array.IndexOf(e.Args, "--models");
         if (overrideIndex >= 0 && overrideIndex + 1 < e.Args.Length) root = e.Args[overrideIndex + 1];
         var assets = new RuntimeAssets(root);
+        if (e.Args.FirstOrDefault() == "--menu-smoke")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);
+            var menu = new MenuWindow(assets, Path.Combine(output, "settings.json")); MainWindow = menu;
+            try
+            {
+                var report = await menu.SmokeAsync(output);
+                File.WriteAllText(Path.Combine(output, "menu-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
+                File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}"); Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                File.WriteAllText(Path.Combine(output, "status.json"), JsonSerializer.Serialize(new { status = "failed", error = ex.ToString() }, RuntimeAssets.Json)); Shutdown(1);
+            }
+            return;
+        }
         if (e.Args.FirstOrDefault() == "--online-live-smoke")
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -67,6 +84,8 @@ public partial class App : Application
             {
                 await Task.Run(() => assets.Verify(CancellationToken.None));
                 var report = await OnlineSmoke.Run(assets, output);
+                var fixedReport = await OnlineSmoke.Run(assets, Path.Combine(output, "fixed"), locked: true);
+                File.WriteAllText(Path.Combine(output, "fixed-online-smoke.json"), JsonSerializer.Serialize(fixedReport, RuntimeAssets.Json));
                 File.WriteAllText(Path.Combine(output, "online-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
                 File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}"); Shutdown(0);
             }
@@ -98,9 +117,14 @@ public partial class App : Application
             }
             return;
         }
+        if (e.Args.FirstOrDefault() is not ("--self-check" or "--smoke" or "--drawing-smoke" or "--parameter-smoke"))
+        {
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+            var menu = new MenuWindow(assets); MainWindow = menu; menu.Show(); return;
+        }
         var window = new MainWindow(assets);
         MainWindow = window;
-        if (e.Args.FirstOrDefault() is "--self-check" or "--smoke" or "--drawing-smoke")
+        if (e.Args.FirstOrDefault() is "--self-check" or "--smoke" or "--drawing-smoke" or "--parameter-smoke")
         {
             string destination = Path.GetFullPath(e.Args[1]);
             Directory.CreateDirectory(destination);
@@ -109,6 +133,8 @@ public partial class App : Application
                 await window.InitializeAsync();
                 assets.Verify(CancellationToken.None);
                 window.RenderCheck(Path.Combine(destination, "app-ready.png"));
+                if (e.Args[0] == "--parameter-smoke")
+                    File.WriteAllText(Path.Combine(destination, "parameter-smoke.json"), JsonSerializer.Serialize(await window.ParameterSmokeAsync(destination), RuntimeAssets.Json));
                 if (e.Args[0] == "--drawing-smoke")
                     File.WriteAllText(Path.Combine(destination, "drawing-smoke.json"), JsonSerializer.Serialize(await window.DrawingSmokeAsync(destination), RuntimeAssets.Json));
                 if (e.Args[0] == "--smoke")

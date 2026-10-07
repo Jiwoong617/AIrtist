@@ -1,77 +1,63 @@
-<Window x:Class="AIrtist.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AIrtist · 그림그리기" Width="1120" Height="800" MinWidth="940" MinHeight="740" Background="#111824" Foreground="{StaticResource Ink}" WindowStartupLocation="CenterScreen" FontFamily="Malgun Gothic">
-  <Grid x:Name="Page" Margin="32" Background="#111824">
-    <Grid.RowDefinitions><RowDefinition Height="70"/><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
-    <Grid>
-      <StackPanel><TextBlock Text="AIrtist" FontSize="30" FontWeight="Bold"/><TextBlock Text="떠오르는 장면을 말로 그려 보세요" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/></StackPanel>
-      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-        <Button x:Name="Online" Content="온라인 방" Click="OnlineClicked" Padding="14,8" Margin="0,0,12,0" IsEnabled="False"/>
-        <Button x:Name="VotingPreview" Content="경기 미리보기" Click="VotingClicked" Padding="14,8" Margin="0,0,12,0" Background="#344052" Foreground="#EDF1F6" IsEnabled="False"/>
-        <Border Background="#22392F" CornerRadius="16" Padding="14,7"><TextBlock Text="●  그림그리기 · 오프라인" Foreground="#A7E3C2" FontSize="12" VerticalAlignment="Center"/></Border>
+<Window x:Class="AIrtist.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AIrtist.App"
+        Title="AIrtist · 그림그리기" Width="1120" Height="820" MinWidth="940" MinHeight="740" Background="#111824" Foreground="#EDF1F6" WindowStartupLocation="CenterScreen" FontFamily="Malgun Gothic">
+  <Window.Resources>
+    <Style TargetType="TextBox"><Setter Property="Background" Value="#111824"/><Setter Property="Foreground" Value="#EDF1F6"/><Setter Property="CaretBrush" Value="#A7E3C2"/><Setter Property="BorderBrush" Value="#45556B"/><Setter Property="Padding" Value="12"/><Setter Property="FontSize" Value="16"/></Style>
+  </Window.Resources>
+  <Grid x:Name="Page" Margin="24" Background="#111824">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <DockPanel Margin="0,0,0,18">
+      <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button x:Name="Home" Content="메인 화면" Click="HomeClicked" Margin="0,0,10,0"/>
+        <Button x:Name="Online" Content="온라인 방" Click="OnlineClicked" Visibility="Collapsed" IsEnabled="False"/>
+        <Button x:Name="VotingPreview" Content="경기 미리보기" Click="VotingClicked" Visibility="Collapsed" IsEnabled="False"/>
       </StackPanel>
-    </Grid>
-    <Grid Grid.Row="1" Margin="0,14,0,0">
-      <Grid.ColumnDefinitions><ColumnDefinition Width="370"/><ColumnDefinition Width="24"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <Border Background="#1B2534" CornerRadius="18" Padding="26">
-        <Grid>
-          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-          <StackPanel>
-            <TextBlock Text="무엇을 그릴까요?" FontSize="25" FontWeight="Bold"/>
-            <TextBlock Text="사과, 토끼, 상상 속 풍경까지.&#10;이름과 색, 모양을 자유롭게 적어 보세요." TextWrapping="Wrap" Foreground="{StaticResource Muted}" LineHeight="23" Margin="0,12,0,22"/>
-            <TextBlock Text="당신의 묘사" FontWeight="Bold" FontSize="16" Margin="0,0,0,12"/>
-          </StackPanel>
-          <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel>
-              <TextBox x:Name="Description" Height="150" MaxLength="160" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="13" Background="#111824" Foreground="#EDF1F6" CaretBrush="#A7E3C2" BorderBrush="#45556B" FontSize="16" TextChanged="DescriptionChanged" IsEnabled="False" AutomationProperties.Name="자유로운 그림 묘사 입력"/>
-              <TextBlock x:Name="LengthLabel" Text="0 / 160 · Enter는 줄바꿈" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,8,0,16" HorizontalAlignment="Right"/>
-              <TextBlock Text="번역을 확인하고 고친 뒤 그림을 만듭니다.&#10;원하는 만큼 천천히 작성해 주세요." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" LineHeight="22"/>
+      <StackPanel><TextBlock Text="AIrtist" FontSize="28" FontWeight="Bold"/><TextBlock Text="원하는 장면을 자유롭게 그려 보세요" Foreground="{StaticResource Muted}"/></StackPanel>
+    </DockPanel>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="18"/><ColumnDefinition/></Grid.ColumnDefinitions>
+      <Border Background="#1B2534" CornerRadius="14" Padding="20">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
+          <TextBlock Text="생성 설정" FontSize="19" FontWeight="Bold" Margin="0,0,0,20"/>
+          <local:ParameterEditor x:Name="Parameters" IsEnabled="False"/>
+          <TextBlock x:Name="UsedParameters" TextWrapping="Wrap" Foreground="#A7E3C2" FontSize="12" Margin="0,20,0,0"/>
+        </StackPanel></ScrollViewer>
+      </Border>
+      <Border Grid.Column="2" Background="#1B2534" CornerRadius="14" Padding="18">
+        <Grid><Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <Border Background="#121C29" CornerRadius="10"><Grid>
+            <StackPanel x:Name="Placeholder" VerticalAlignment="Center" HorizontalAlignment="Center">
+              <TextBlock Text="✦" FontSize="54" Foreground="#A7E3C2" HorizontalAlignment="Center"/>
+              <TextBlock Text="아래에 원하는 그림을 적어 주세요" Foreground="{StaticResource Muted}" Margin="0,16,0,0"/>
             </StackPanel>
-          </ScrollViewer>
-          <StackPanel Grid.Row="2" Margin="0,18,0,0">
-            <Button x:Name="Submit" Content="번역 확인" Click="SubmitClicked" IsEnabled="False" IsDefault="False"/>
-            <Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="10"/><ColumnDefinition/></Grid.ColumnDefinitions>
-              <Button x:Name="Cancel" Content="취소" Click="CancelClicked" IsEnabled="False" Background="#344052" Foreground="#EDF1F6"/>
-              <Button x:Name="EditDescription" Grid.Column="2" Content="묘사 수정" Click="EditClicked" IsEnabled="False" Background="#344052" Foreground="#EDF1F6"/>
-            </Grid>
+            <Image x:Name="GeneratedImage" Stretch="Uniform" AutomationProperties.Name="생성된 그림"/>
+          </Grid></Border>
+          <StackPanel Grid.Row="1" Margin="0,10,0,0"><TextBlock x:Name="StatusLabel" Text="모델 파일을 확인하고 있어요" TextWrapping="Wrap"/>
+            <ProgressBar x:Name="Activity" Height="3" Margin="0,8,0,0" IsIndeterminate="True" Foreground="#A7E3C2" Background="#344052"/>
           </StackPanel>
-        </Grid>
-      </Border>
-      <Border Grid.Column="2" Background="#1B2534" CornerRadius="18" Padding="22">
-        <Grid>
-          <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-          <Border Background="#121C29" CornerRadius="12" ClipToBounds="True">
-            <Grid>
-              <StackPanel x:Name="Placeholder" VerticalAlignment="Center" HorizontalAlignment="Center">
-                <TextBlock Text="✦" FontSize="54" Foreground="#A7E3C2" HorizontalAlignment="Center"/>
-                <TextBlock Text="당신의 말이 그림이 되는 곳" FontSize="17" Margin="0,20,0,8" HorizontalAlignment="Center"/>
-                <TextBlock Text="원하는 장면을 적고 번역을 확인해 보세요" Foreground="{StaticResource Muted}" FontSize="12" HorizontalAlignment="Center"/>
-              </StackPanel>
-              <Image x:Name="GeneratedImage" Stretch="Uniform" AutomationProperties.Name="생성된 그림"/>
-              <ScrollViewer x:Name="ReviewPanel" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid Margin="24" MinHeight="340">
-                  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
-                  <StackPanel Margin="0,0,0,16">
-                    <TextBlock Text="그림에 사용할 영어 묘사" FontSize="21" FontWeight="Bold" Foreground="#A7E3C2"/>
-                    <TextBlock Text="왼쪽 원문의 뜻이 잘 담겼는지 확인해 주세요.&#10;대상 이름을 쓰거나 내용을 자유롭게 고칠 수 있어요." TextWrapping="Wrap" Foreground="{StaticResource Muted}" LineHeight="22" Margin="0,10,0,0"/>
-                  </StackPanel>
-                  <TextBox x:Name="ReviewedTranslation" Grid.Row="1" MinHeight="90" MaxLength="320" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="13" Background="#111824" Foreground="#EDF1F6" CaretBrush="#A7E3C2" BorderBrush="#A7E3C2" FontSize="16" TextChanged="TranslationChanged" AutomationProperties.Name="생성 전 영어 묘사 확인 및 수정"/>
-                  <StackPanel Grid.Row="2" Margin="0,10,0,0">
-                    <TextBlock x:Name="TranslationLengthLabel" Text="0 / 320 · Enter는 줄바꿈" FontSize="11" Foreground="{StaticResource Muted}" HorizontalAlignment="Right"/>
-                    <TextBlock Text="확인한 문장으로 한 장을 그립니다.&#10;완성 후에도 다시 그리거나 묘사를 바꿀 수 있어요." TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" LineHeight="21" Margin="0,14,0,12"/>
-                    <Button x:Name="ReviseDescription" Content="원문 다시 쓰기" Click="ReviseClicked" Background="#344052" Foreground="#EDF1F6" IsDefault="False"/>
-                  </StackPanel>
-                </Grid>
-              </ScrollViewer>
-            </Grid>
-          </Border>
-          <StackPanel Grid.Row="1" Margin="0,18,0,0">
-            <TextBlock x:Name="StatusLabel" Text="모델 파일을 확인하고 있어요" TextWrapping="Wrap" FontSize="14" LineHeight="23"/>
-            <ProgressBar x:Name="Activity" Height="3" Margin="0,10,0,0" IsIndeterminate="True" Foreground="#A7E3C2" Background="#344052"/>
-          </StackPanel>
-          <TextBlock x:Name="TranslationLabel" Grid.Row="2" Text="그림은 이 PC에서 만들어집니다" TextWrapping="Wrap" Foreground="{StaticResource Muted}" FontSize="12" Margin="0,16,0,0"/>
         </Grid>
       </Border>
     </Grid>
-    <TextBlock Grid.Row="2" Text="인터넷 연결 없이 그릴 수 있어요 · 생성 중 취소 가능 · 그림은 앱을 닫으면 보관되지 않습니다" FontSize="11" Foreground="{StaticResource Muted}" VerticalAlignment="Bottom"/>
+    <Border Grid.Row="2" Background="#1B2534" CornerRadius="14" Padding="16" Margin="0,16,0,0">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="18"/><ColumnDefinition Width="160"/></Grid.ColumnDefinitions>
+        <Grid>
+          <StackPanel x:Name="DescriptionPanel"><TextBlock Text="무엇을 그릴까요?" FontWeight="Bold" Margin="0,0,0,7"/>
+            <TextBox x:Name="Description" Height="76" MaxLength="160" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="DescriptionChanged" IsEnabled="False" AutomationProperties.Name="자유로운 그림 묘사 입력"/>
+            <TextBlock x:Name="LengthLabel" FontSize="11" Foreground="{StaticResource Muted}" Margin="0,5,0,0"/>
+          </StackPanel>
+          <StackPanel x:Name="ReviewPanel" Visibility="Collapsed"><TextBlock Text="영어 묘사 확인 · 원문과 다르면 고쳐 주세요" FontWeight="Bold" Margin="0,0,0,7"/>
+            <TextBox x:Name="ReviewedTranslation" Height="76" MaxLength="320" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" TextChanged="TranslationChanged" AutomationProperties.Name="생성 전 영어 묘사 확인 및 수정"/>
+            <DockPanel Margin="0,5,0,0"><Button x:Name="ReviseDescription" Content="원문 다시 쓰기" Click="ReviseClicked" Padding="8,3" Background="#344052" Foreground="#EDF1F6" DockPanel.Dock="Right"/>
+              <TextBlock x:Name="TranslationLengthLabel" FontSize="11" Foreground="{StaticResource Muted}"/>
+            </DockPanel>
+          </StackPanel>
+        </Grid>
+        <StackPanel Grid.Column="2" VerticalAlignment="Center">
+          <Button x:Name="Submit" Content="그림 그리기" Click="SubmitClicked" IsEnabled="False" IsDefault="False"/>
+          <Button x:Name="EditDescription" Content="묘사 수정" Click="EditClicked" Visibility="Collapsed" IsEnabled="False"/>
+          <Button x:Name="Cancel" Content="취소" Click="CancelClicked" IsEnabled="False" Background="#344052" Foreground="#EDF1F6" Margin="0,6,0,0" Padding="10,6"/>
+        </StackPanel>
+      </Grid>
+    </Border>
+    <TextBlock x:Name="TranslationLabel" Grid.Row="3" Text="이 PC에서 생성합니다 · 앱을 닫으면 그림은 보관되지 않습니다" TextWrapping="Wrap" MaxHeight="42" Foreground="{StaticResource Muted}" FontSize="11" Margin="0,10,0,0"/>
   </Grid>
 </Window>

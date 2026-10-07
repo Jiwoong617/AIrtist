@@ -20,16 +20,27 @@ public partial class MainWindow : Window
     private bool closed;
     private OnlineSessionWorker? onlineWorker;
     private bool closingOnline, onlineStopped;
+    private Task? drawingClick;
+    private bool closingDrawing, drawingStopped;
     public int SmokeDispatcherTicks { get; private set; }
 
-    public MainWindow(RuntimeAssets assets)
+    public MainWindow(RuntimeAssets assets, IDrawingAi? ai = null)
     {
         InitializeComponent();
         this.assets = assets;
+        sharedAi = ai;
         timer.Tick += (_, _) => { SmokeDispatcherTicks++; Refresh(); };
         Closed += (_, _) => { closed = true; timer.Stop(); lifetime.Cancel(); drawing?.Dispose(); };
         Closing += async (_, e) =>
         {
+            if (!drawingStopped && drawingClick is { IsCompleted: false })
+            {
+                e.Cancel = true; if (closingDrawing) return;
+                closingDrawing = true; IsEnabled = false;
+                drawing?.Cancel(drawing.Snapshot.Version);
+                await drawingClick; drawingStopped = true;
+                _ = Dispatcher.BeginInvoke(new Action(Close)); return;
+            }
             if (onlineWorker is null || onlineStopped) return;
             e.Cancel = true; if (closingOnline) return;
             closingOnline = true; IsEnabled = false;
@@ -45,7 +56,7 @@ public partial class MainWindow : Window
         {
             await Task.Run(() => assets.Verify(lifetime.Token));
             if (closed) return;
-            sharedAi = new SerializedDrawingAi(new LocalDrawingAi(assets));
+            sharedAi ??= new SerializedDrawingAi(new LocalDrawingAi(assets));
             drawing = new(sharedAi);
             timer.Start();
             Refresh();
@@ -60,9 +71,23 @@ public partial class MainWindow : Window
 
     private async void SubmitClicked(object sender, RoutedEventArgs e)
     {
-        if (drawing?.Snapshot.Phase == DrawingPhase.Editing) await PrepareDescriptionAsync();
-        else await GenerateAsync(Random.Shared.Next());
+        await DrawFromInputAsync();
     }
+
+    private async Task DrawFromInputAsync()
+    {
+        if (drawing is null || drawing.Snapshot.Busy || drawingClick is { IsCompleted: false }) return;
+        try
+        {
+            drawingClick = drawing.DrawAsync(drawing.Snapshot.Version, Description.Text, Parameters.Read());
+            Refresh(); await drawingClick;
+            if (!closed) Refresh();
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+        { if (!closed) { Refresh(); StatusLabel.Text = ex.Message; } }
+    }
+
+    private void HomeClicked(object sender, RoutedEventArgs e) => Close();
 
     private async Task PrepareDescriptionAsync()
     {
@@ -84,14 +109,16 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task GenerateAsync(int seed)
+    private async Task GenerateAsync(int? seed = null)
     {
         if (drawing is null) return;
         try
         {
             string translation = drawing.Snapshot.Phase == DrawingPhase.Completed
                 ? drawing.Snapshot.Draft!.Translation : ReviewedTranslation.Text;
-            Task work = drawing.GenerateAsync(shownVersion, shownDraftId, translation, seed);
+            var parameters = Parameters.Read();
+            if (seed is not null) parameters = parameters with { Seed = seed };
+            Task work = drawing.GenerateAsync(shownVersion, shownDraftId, translation, parameters);
             Refresh();
             await work;
             if (!closed) Refresh();
@@ -114,13 +141,15 @@ public partial class MainWindow : Window
         bool reviewing = state.Phase == DrawingPhase.Reviewing;
         bool completed = state.Phase == DrawingPhase.Completed;
         Description.IsEnabled = !state.Busy;
-        Description.IsReadOnly = !editing;
+        Description.IsReadOnly = state.Busy;
         Submit.IsEnabled = (editing || reviewing || completed) && !state.Busy;
-        Submit.Content = editing ? "번역 확인" : completed ? "다시 그리기" : "확정하고 그리기";
+        Submit.Content = "그림 그리기";
         EditDescription.IsEnabled = completed && !state.Busy;
-        ReviewPanel.Visibility = reviewing ? Visibility.Visible : Visibility.Collapsed;
-        GeneratedImage.Visibility = reviewing ? Visibility.Collapsed : Visibility.Visible;
-        Placeholder.Visibility = reviewing || GeneratedImage.Source is not null ? Visibility.Collapsed : Visibility.Visible;
+        ReviewPanel.Visibility = Visibility.Collapsed;
+        DescriptionPanel.Visibility = Visibility.Visible;
+        Parameters.IsEnabled = !state.Busy;
+        GeneratedImage.Visibility = Visibility.Visible;
+        Placeholder.Visibility = GeneratedImage.Source is not null ? Visibility.Collapsed : Visibility.Visible;
         ReviewedTranslation.IsEnabled = ReviseDescription.IsEnabled = reviewing && !state.Busy;
         if (reviewing && state.Draft is { } draft && (shownDraftId != draft.Id || enteringReview))
         {
@@ -138,7 +167,8 @@ public partial class MainWindow : Window
             shownResult = result;
             GeneratedImage.Source = ImageCodec.Load(result.Png);
             Placeholder.Visibility = Visibility.Collapsed;
-            TranslationLabel.Text = "그림에 사용한 묘사: " + result.Translation;
+            TranslationLabel.Text = "이 PC에서 생성합니다 · 앱을 닫으면 그림은 보관되지 않습니다";
+            UsedParameters.Text = $"최근 그림\nCFG {result.Parameters.Guidance} · {result.Parameters.Steps} Steps\nSeed {result.Seed}";
         }
     }
 
@@ -202,9 +232,7 @@ public partial class MainWindow : Window
             RenderCheck(Path.Combine(output, "translation-review-corrected.png"));
             RenderCheck(Path.Combine(output, "translation-review-150.png"), dpi: 144);
             RenderCheck(Path.Combine(output, "translation-review-minimum.png"), width: 876, height: 636);
-            ReviewPanel.ScrollToEnd();
             RenderCheck(Path.Combine(output, "translation-review-minimum-bottom.png"), width: 876, height: 636);
-            ReviewPanel.ScrollToHome();
         }
         await GenerateAsync(42);
         if (drawing.Snapshot.Phase != DrawingPhase.Completed || shownResult is null || GeneratedImage.Source is null || !Submit.IsEnabled || !EditDescription.IsEnabled || Cancel.IsEnabled)
@@ -244,6 +272,45 @@ public partial class MainWindow : Window
             directObjectNamesAllowed = true, translationReviewed = true, revisionPreservedSource = true,
             repeatEnabled = Submit.IsEnabled, correctedTranslation = first.Translation,
             results = new[] { first, repeated, final }.Select(r => new { r.Description, r.Translation, r.Seed, r.TranslationSeconds, r.GenerationSeconds }) };
+    }
+
+    public async Task<object> ParameterSmokeAsync(string output)
+    {
+        if (drawing is null) throw new InvalidOperationException("Drawing not initialized");
+        Description.Text = "a small white rabbit with long ears";
+        Parameters.Set(new(5.5f, 8, 42));
+        await PrepareDescriptionAsync();
+        RenderCheck(Path.Combine(output, "parameters-review.png"));
+        Parameters.StepsInput.Text = "51";
+        await GenerateAsync();
+        if (drawing.Snapshot.Phase != DrawingPhase.Reviewing || drawing.Snapshot.Result is not null)
+            throw new InvalidOperationException("Invalid parameters consumed generation");
+        Parameters.Set(new(5.5f, 8, 42));
+        await GenerateAsync();
+        var first = drawing.Snapshot.Result ?? throw new InvalidOperationException("Custom generation failed: " + StatusLabel.Text);
+        if (first.Parameters != new GenerationParameters(5.5f, 8, 42)) throw new InvalidOperationException("UI parameters not applied");
+        File.WriteAllBytes(Path.Combine(output, "steps-8.png"), first.Png);
+        RenderCheck(Path.Combine(output, "parameters-result.png"));
+        RenderCheck(Path.Combine(output, "parameters-small.png"), width: 876, height: 636, dpi: 144);
+        await GenerateAsync();
+        var repeated = drawing.Snapshot.Result!;
+        if (ReferenceEquals(first, repeated) || !first.Png.SequenceEqual(repeated.Png))
+            throw new InvalidOperationException("Fixed seed/parameters did not reproduce on the same runtime");
+        Parameters.Set(new(7.25f, 8, 42));
+        await GenerateAsync();
+        var changed = drawing.Snapshot.Result!;
+        if (changed.Parameters != new GenerationParameters(7.25f, 8, 42) || first.Png.SequenceEqual(changed.Png))
+            throw new InvalidOperationException("CFG change did not affect generation");
+        File.WriteAllBytes(Path.Combine(output, "cfg-7.25.png"), changed.Png);
+        Parameters.Set(new(7.25f, 12, 42));
+        await GenerateAsync();
+        var moreSteps = drawing.Snapshot.Result!;
+        if (moreSteps.Parameters != new GenerationParameters(7.25f, 12, 42) || changed.Png.SequenceEqual(moreSteps.Png))
+            throw new InvalidOperationException("Step change did not affect generation");
+        File.WriteAllBytes(Path.Combine(output, "steps-12.png"), moreSteps.Png);
+        return new { status = "passed", actualAi = true, fixedSeedRepeat = true, rejectedOutOfRange = true,
+            cfgChangeVerified = true, stepChangeVerified = true,
+            results = new[] { first, repeated, changed, moreSteps }.Select(r => new { r.Parameters, r.GenerationSeconds }) };
     }
 
     public void RenderCheck(string destination, byte[]? image = null, double dpi = 96, double width = 1056, double height = 696)

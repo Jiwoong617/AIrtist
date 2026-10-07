@@ -33,9 +33,9 @@ public sealed class MultiplayerRoundRuntime : IDisposable
     private MultiplayerRoundPhase? lastHostPhase;
     private RoundAiPhase aiPhase;
     private string message = "경기 시작을 기다리고 있어요";
-    private int seed;
     private GenerationApproval? generation;
     private Job? job;
+    private GenerationParameters? autoParameters;
     private sealed class Peer(ReliableControlEndpoint endpoint)
     {
         public readonly ReliableControlEndpoint Endpoint = endpoint;
@@ -83,10 +83,21 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         lock (sync)
         {
             CheckAlive(); var state = client.Snapshot();
-            if (job is not null || state.Phase != SubmissionClientPhase.Writing) throw new InvalidOperationException("작성 시간 안에 이전 작업이 끝난 뒤 번역해 주세요.");
+            if (job is not null || pendingCommand is not null || aiPhase == RoundAiPhase.WaitingApproval || state.Phase != SubmissionClientPhase.Writing) throw new InvalidOperationException("작성 시간 안에 이전 작업이 끝난 뒤 다시 시도해 주세요.");
             string input = InputRules.Validate(description, words[state.Prompt!.Id]); draft = new(++draftId, input, "");
             aiPhase = RoundAiPhase.Translating; message = "영어 묘사를 준비하고 있어요";
             StartJob(false, Min(state.WritingRemaining, TimeSpan.FromMinutes(3)), token => new(ai.Translate(input, token), null, null));
+        }
+    }
+    public void Draw(string description, GenerationParameters parameters)
+    {
+        lock (sync)
+        {
+            parameters.Validate();
+            var fixedValues = client.Snapshot().FixedParameters;
+            if (fixedValues is not null && parameters != fixedValues) throw new ArgumentException("방장이 고정한 생성 설정을 사용해 주세요.");
+            PrepareTranslation(description);
+            autoParameters = parameters;
         }
     }
     public void Revise(long expectedDraftId)
@@ -97,12 +108,14 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         }
     }
     public void Confirm(long expectedDraftId, string translation, int seed)
+        => Confirm(expectedDraftId, translation, new GenerationParameters(Seed: seed));
+    public void Confirm(long expectedDraftId, string translation, GenerationParameters parameters)
     {
         lock (sync)
         {
             CheckDraft(expectedDraftId);
-            var request = client.CreateSubmission(draft!.Description, translation);
-            draft = draft with { Translation = request.Translation }; this.seed = seed;
+            var request = client.CreateSubmission(draft!.Description, translation, parameters);
+            draft = draft with { Translation = request.Translation };
             pendingCommand = RoundControlMessages.Encode(request); aiPhase = RoundAiPhase.WaitingApproval; message = "방장의 제출 승인을 기다리고 있어요";
         }
     }
@@ -149,7 +162,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
             {
                 generation = approval; aiPhase = RoundAiPhase.Generating; message = "승인된 묘사로 그림을 그리고 있어요";
                 StartJob(true, client.Snapshot().GenerationRemaining, token => new(null,
-                    ai.Generate(approval.Translation, seed, token, text => { lock (sync) { if (!disposed && job is not null && !job.Cancel.IsCancellationRequested) message = text; } }), null));
+                    ai.Generate(approval.Translation, approval.Parameters, token, text => { lock (sync) { if (!disposed && job is not null && !job.Cancel.IsCancellationRequested) message = text; } }), null));
             }
             if (!disconnected)
             {
@@ -250,6 +263,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         bool cancelled = finished.Cancel.IsCancellationRequested; job = null; finished.Cancel.Dispose();
         if (cancelled || outcome.Error is not null || disconnected)
         {
+            autoParameters = null;
             message = cancelled ? "작업이 취소되었거나 제한 시간이 지났습니다." : "AI 작업에 실패했습니다. GPU 상태와 입력을 확인해 주세요.";
             if (finished.Generating) { ReportFailure(); aiPhase = RoundAiPhase.Submitted; }
             else { draft = null; aiPhase = RoundAiPhase.Editing; }
@@ -259,6 +273,16 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         {
             draft = draft! with { Translation = outcome.Translation! }; aiPhase = RoundAiPhase.Reviewing;
             message = "번역을 확인·수정한 뒤 최종 제출해 주세요";
+            if (autoParameters is { } parameters)
+            {
+                autoParameters = null;
+                try { Confirm(draft.Id, draft.Translation, parameters); }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+                {
+                    draft = null; aiPhase = RoundAiPhase.Editing;
+                    message = "묘사를 제출하지 못했습니다. 내용을 고쳐 다시 그려 주세요. " + ex.Message;
+                }
+            }
         }
         else
         {

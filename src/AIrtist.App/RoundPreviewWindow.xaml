@@ -1,5 +1,6 @@
-<Window x:Class="AIrtist.App.RoundPreviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+<Window x:Class="AIrtist.App.RoundPreviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AIrtist.App"
         Title="AIrtist · 경기 미리보기" Width="1180" Height="850" MinWidth="940" MinHeight="650" Background="#101722" Foreground="#EDF1F6" WindowStartupLocation="CenterOwner">
+  <Window.Resources><Style TargetType="TextBox"><Setter Property="Background" Value="#111824"/><Setter Property="Foreground" Value="#EDF1F6"/><Setter Property="CaretBrush" Value="#A7E3C2"/><Setter Property="BorderBrush" Value="#45556B"/></Style></Window.Resources>
   <Grid x:Name="Page" Background="#101722" Margin="24">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <StackPanel Margin="0,0,0,16">
@@ -39,31 +40,39 @@
     <Border x:Name="LobbyPanel" Grid.Row="3" Background="#1B2937" CornerRadius="12" Padding="24">
       <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
         <TextBlock Text="경기 전 대기방" FontSize="22" FontWeight="Bold"/>
-        <TextBlock x:Name="LobbySettingsLabel" Foreground="#A7E3C2" TextWrapping="Wrap" Margin="0,12,0,12"/>
+        <CheckBox x:Name="LockRoomParameters" Content="방 파라미터 설정" Foreground="#EDF1F6" Margin="0,16,0,10" Checked="RoomParametersChanged" Unchecked="RoomParametersChanged"/><local:ParameterEditor x:Name="RoomParameters" Width="210" HorizontalAlignment="Left" Visibility="Collapsed"/><TextBlock x:Name="LobbySettingsLabel" Foreground="#A7E3C2" TextWrapping="Wrap" Margin="0,12,0,12"/>
         <TextBlock x:Name="LobbyMembersLabel" Text="인원과 시간을 정한 뒤 대기방을 만들어 주세요." FontSize="17" TextWrapping="Wrap" LineHeight="32"/>
         <Button x:Name="Ready" Content="준비 완료" Click="ReadyClicked" HorizontalAlignment="Left" Margin="0,20,0,16" IsEnabled="False"/>
         <TextBlock x:Name="LobbyGuide" Text="현재 조작하는 역할을 바꾸어 각 참가자를 준비시켜 주세요. 모두 준비하면 방장이 경기를 시작합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
         <TextBlock x:Name="LobbyPolicy" Text="설정·참가자가 바뀌면 모두 다시 준비해야 합니다. 이 화면은 한 PC의 로컬 미리보기입니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
       </StackPanel></ScrollViewer>
     </Border>
-    <Grid x:Name="MatchContent" Grid.Row="3" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="340"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-      <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="0,0,8,0">
-          <TextBlock Text="01  제시어를 쓰지 않고 묘사하기" FontSize="16" FontWeight="Bold"/>
-          <TextBox x:Name="Description" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="98" MaxLength="160" Padding="12" FontSize="15" Margin="0,10,0,10"/>
-          <Button x:Name="Translate" Content="번역 준비" Click="TranslateClicked" IsEnabled="False"/>
-          <TextBlock Text="02  영어 묘사 확인·수정" FontSize="16" FontWeight="Bold" Margin="0,20,0,0"/>
-          <TextBlock Text="원문에 없는 대상·속성을 고쳐 주세요. 확인 시간도 작성 제한에 포함됩니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,7,0,0"/>
-          <TextBox x:Name="English" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="92" MaxLength="320" Padding="12" FontSize="15" Margin="0,10,0,10" IsEnabled="False"/>
-          <Button x:Name="Confirm" Content="최종 제출 · 한 장 생성" Click="ConfirmClicked" IsEnabled="False"/>
-          <WrapPanel Margin="0,8,0,0">
-            <Button x:Name="Revise" Content="원문 고치기" Click="ReviseClicked" Background="#344052" Foreground="#EDF1F6" IsEnabled="False" Margin="0,0,8,0" Padding="14,9"/>
-            <Button x:Name="Cancel" Content="작업 취소" Click="CancelClicked" Background="#344052" Foreground="#EDF1F6" IsEnabled="False" Padding="14,9"/>
-          </WrapPanel>
-          <TextBlock Text="승인 후에는 생성 기회가 소비됩니다. 취소·실패해도 다시 생성할 수 없습니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,10,0,0"/>
+    <Grid x:Name="MatchContent" Grid.Row="3" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Border Background="#1B2937" Padding="16" CornerRadius="12" Margin="0,0,0,12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
+          <TextBlock Text="생성 설정" FontSize="18" FontWeight="Bold" Margin="0,0,0,14"/>
+          <TextBlock x:Name="ParameterPolicyLabel" Foreground="#A7E3C2" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <local:ParameterEditor x:Name="Parameters"/>
           <TextBlock x:Name="ProgressLabel" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,18,0,0"/>
-        </StackPanel>
-      </ScrollViewer>
+        </StackPanel></ScrollViewer>
+      </Border>
+      <Border Grid.Row="1" Grid.ColumnSpan="3" Background="#1B2937" CornerRadius="12" Padding="14" Margin="0,8,0,0">
+        <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <StackPanel><TextBlock Text="제시어를 쓰지 않고 묘사하기" FontWeight="Bold"/>
+            <TextBox x:Name="Description" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="64" MaxLength="160" Padding="8" FontSize="15" Margin="0,8,0,8"/>
+            <WrapPanel><Button x:Name="Translate" Content="그림 그리기" Click="DrawClicked" IsEnabled="False" Padding="12,7"/>
+              <Button Visibility="Collapsed" x:Name="Revise" Content="원문 고치기" Click="ReviseClicked" Background="#344052" Foreground="#EDF1F6" IsEnabled="False" Margin="8,0,0,0" Padding="12,7"/>
+            </WrapPanel>
+          </StackPanel>
+          <StackPanel Grid.Column="2"><TextBlock Visibility="Collapsed" Text="영어 묘사 확인 · 작성 시간에 포함돼요" FontWeight="Bold"/>
+            <TextBox Visibility="Collapsed" x:Name="English" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Height="64" MaxLength="320" Padding="8" FontSize="15" Margin="0,8,0,8" IsEnabled="False"/>
+            <WrapPanel><Button Visibility="Collapsed" x:Name="Confirm" Content="최종 제출 · 한 장 생성" Click="ConfirmClicked" IsEnabled="False" Padding="12,7"/>
+              <Button x:Name="Cancel" Content="취소" Click="CancelClicked" Background="#344052" Foreground="#EDF1F6" IsEnabled="False" Margin="8,0,0,0" Padding="12,7"/>
+            </WrapPanel>
+          </StackPanel>
+        </Grid>
+      </Border>
       <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
         <StackPanel>
           <Border x:Name="HistoryPanel" Background="#1B2937" CornerRadius="10" Padding="12" Margin="0,0,0,12" Visibility="Collapsed">
@@ -75,7 +84,7 @@
           </Border>
           <TextBlock x:Name="GalleryTitle" Text="생성한 그림" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
           <TextBlock x:Name="GalleryHint" Text="다른 역할로 바꾸어 모든 참가자의 그림을 만들어 주세요." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
-          <Image x:Name="OwnImage" Height="300" Stretch="Uniform" Visibility="Collapsed"/>
+          <Image x:Name="OwnImage" Height="260" Stretch="Uniform" Visibility="Collapsed"/>
           <ItemsControl x:Name="Cards">
             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate><DataTemplate>

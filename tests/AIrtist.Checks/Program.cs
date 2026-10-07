@@ -14,7 +14,8 @@ internal static class Program
             string root = Path.GetFullPath(args.ElementAtOrDefault(1) ?? ".");
             var assets = new RuntimeAssets(Path.Combine(root, "models/app-stage3"));
             string results = Path.Combine(root, "outputs/app-stage3");
-            if (mode == "unit") { AssetAndWordChecks.Run(root); LobbyChecks.Run(); LobbySessionChecks.Run(); ConnectionBootstrapChecks.Run(); VotingChecks.Run(); MultiplayerChecks.Run(); GallerySyncChecks.Run(); ControlTransportChecks.Run(); ImageSendChecks.Run(); RoundDispatchChecks.Run(); await RoundRuntimeChecks.Run(); await MatchRuntimeChecks.Run(); await DrawingChecks.Run(); }
+            if (mode == "unit") { await GenerationParameterChecks.Run(root); AssetAndWordChecks.Run(root); LobbyChecks.Run(); LobbySessionChecks.Run(); ConnectionBootstrapChecks.Run(); VotingChecks.Run(); MultiplayerChecks.Run(); GallerySyncChecks.Run(); ControlTransportChecks.Run(); ImageSendChecks.Run(); RoundDispatchChecks.Run(); await RoundRuntimeChecks.Run(); await MatchRuntimeChecks.Run(); await DrawingChecks.Run(); }
+            else if (mode == "parameters") await GenerationParameterChecks.Run(root);
             else if (mode == "lobby") LobbyChecks.Run();
             else if (mode == "lobby-session") LobbySessionChecks.Run();
             else if (mode == "connection-bootstrap") ConnectionBootstrapChecks.Run();

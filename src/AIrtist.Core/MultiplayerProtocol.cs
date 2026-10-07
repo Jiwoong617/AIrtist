@@ -8,7 +8,7 @@ namespace AIrtist.Core;
 public sealed record MultiplayerCompatibility(int ProtocolVersion, string RulesVersion, string AssetsSha256, string WordsSha256)
 {
     public const int CurrentProtocol = 1;
-    public const string CurrentRules = "multiplayer-match-v6";
+    public const string CurrentRules = "multiplayer-parameters-v7";
 
     // Call only after RuntimeAssets.Verify; a manifest fingerprint alone does not verify models.
     public static MultiplayerCompatibility FromVerifiedAssets(RuntimeAssets assets, string wordsPath)
@@ -46,10 +46,16 @@ public sealed record MultiplayerCompatibility(int ProtocolVersion, string RulesV
 
 public sealed record MultiplayerParticipant(VotingPlayer Player, MultiplayerCompatibility Compatibility);
 public sealed record SubmissionRequest(Guid MatchId, Guid RoundId, long SubmissionVersion, string RequestId,
-    string PlayerId, string Description, string Translation);
+    string PlayerId, string Description, string Translation)
+{
+    public GenerationParameters Parameters { get; init; } = new();
+}
 // No word or answer is included in the generation input handed to a player.
 public sealed record GenerationApproval(Guid MatchId, Guid RoundId, long SubmissionVersion, Guid ApprovalId,
-    string PlayerId, string Description, string Translation, DateTimeOffset GenerationDeadline);
+    string PlayerId, string Description, string Translation, DateTimeOffset GenerationDeadline)
+{
+    public GenerationParameters Parameters { get; init; } = new();
+}
 public sealed record ImageTransferDescriptor(Guid MatchId, Guid RoundId, long SubmissionVersion, Guid ApprovalId,
     Guid TransferId, string PlayerId, int TotalBytes, string Sha256);
 

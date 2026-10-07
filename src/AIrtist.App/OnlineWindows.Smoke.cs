@@ -18,6 +18,15 @@ public partial class MainWindow
 
 public partial class OnlineRoomWindow
 {
+    internal void SmokeCreateWithParameters(GenerationParameters? fixedValues, string output)
+    {
+        Refresh(); OnlineSmoke.Require(Create.IsEnabled, "Create UI unavailable");
+        LockRoomParameters.IsChecked = fixedValues is not null;
+        if (fixedValues is not null) RoomParameters.Set(fixedValues);
+        OnlineSmoke.Require(RoomParameters.Visibility == (fixedValues is null ? Visibility.Collapsed : Visibility.Visible), "Creation parameter visibility wrong");
+        SmokeRender(Path.Combine(output, "room-create-parameters.png"));
+        Capacity.SelectedItem = 3; CreateClicked(this, new());
+    }
     internal void SmokeConnect() { Refresh(); ConnectClicked(this, new()); }
     internal void SmokeLiveSearch() { Refresh(); OnlineLiveSmoke.Require(Search.IsEnabled, "방 검색 버튼 상태"); SearchClicked(this, new()); }
     internal void SmokeLiveCreate()
@@ -54,7 +63,22 @@ public partial class RoundPreviewWindow
     }
     internal void OnlineSmokeStart() { Refresh(); OnlineSmoke.Require(Start.IsEnabled, "Host start not enabled"); StartClicked(this, new()); }
     internal void OnlineSmokeTranslate() { Refresh(); OnlineSmoke.Require(Translate.IsEnabled && string.IsNullOrEmpty(English.Text), "New round UI not ready"); Description.Text = "둥글고 붉은 물체"; TranslateClicked(this, new()); }
-    internal void OnlineSmokeConfirm() { Refresh(); OnlineSmoke.Require(Confirm.IsEnabled, "Review UI not ready"); English.Text = "a round red object"; ConfirmClicked(this, new()); }
+    internal void OnlineSmokeDraw(int index)
+    {
+        Refresh(); OnlineSmoke.Require(Translate.IsEnabled && English.Visibility == Visibility.Collapsed && Confirm.Visibility == Visibility.Collapsed, "One-click UI not ready");
+        bool locked = CurrentRound!.Submission.FixedParameters is not null;
+        OnlineSmoke.Require(Parameters.IsEnabled == !locked, "Room lock missing");
+        if (!locked) Parameters.Set(new(5f + index * .5f, 8 + index, 200 + index));
+        Description.Text = "둥글고 붉은 물체"; DrawClicked(this, new());
+    }
+    internal void OnlineSmokeConfirm(int index = 0)
+    {
+        Refresh(); OnlineSmoke.Require(Confirm.IsEnabled, "Review UI not ready");
+        bool locked = CurrentRound!.Submission.FixedParameters is not null;
+        OnlineSmoke.Require(Parameters.IsEnabled == !locked, "Room lock missing from participant UI");
+        if (!locked) Parameters.Set(new(5f + index * .5f, 8 + index, 200 + index));
+        English.Text = "a round red object"; ConfirmClicked(this, new());
+    }
     internal void OnlineSmokeVote(string owner)
     {
         Refresh(); var state = CurrentRound!;

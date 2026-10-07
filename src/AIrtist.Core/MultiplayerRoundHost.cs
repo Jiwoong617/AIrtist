@@ -6,6 +6,9 @@ public sealed record MultiplayerRoundPolicy(TimeSpan WritingDuration, TimeSpan G
     TimeSpan TransferDuration, VotingPolicy Voting)
 {
     public TimeSpan GalleryDuration { get; init; } = TimeSpan.FromSeconds(60);
+    // Null: each participant chooses. Non-null: all three values are host-fixed.
+    public GenerationParameters? FixedParameters { get; init; }
+    public bool HasValidParameters => FixedParameters is null || (FixedParameters.IsValid() && FixedParameters.Seed is not null);
     // Provisional timings. Translation review is included in writing; transfer is
     // included in the approved player's generation budget, with its own shorter cap.
     public static MultiplayerRoundPolicy Default => new(TimeSpan.FromSeconds(120), TimeSpan.FromSeconds(180),
@@ -90,7 +93,7 @@ public sealed class MultiplayerRoundHost : IDisposable
         static bool ValidTime(TimeSpan time, int maxMinutes) => time >= TimeSpan.FromSeconds(1) && time <= TimeSpan.FromMinutes(maxMinutes);
         if (!ValidTime(this.policy.WritingDuration, 10) || !ValidTime(this.policy.GenerationDuration, 10)
             || !ValidTime(this.policy.TransferDuration, 2) || !ValidTime(this.policy.GalleryDuration, 5)
-            || this.policy.Voting is null || !ValidTime(this.policy.Voting.Duration, 10))
+            || this.policy.Voting is null || !ValidTime(this.policy.Voting.Duration, 10) || !this.policy.HasValidParameters)
             throw new ArgumentException("작성·생성·전송·투표 제한 시간을 확인해 주세요.");
         this.clock = clock ?? TimeProvider.System;
         this.matchId = matchId; this.roundId = roundId; this.submissionVersion = submissionVersion; this.hostId = hostId;
@@ -115,12 +118,15 @@ public sealed class MultiplayerRoundHost : IDisposable
                 return slot.Request == request ? Reply(SubmissionStatus.Duplicate, slot.Approval) : Reply(SubmissionStatus.RequestConflict);
             if (slot.Approval is not null) return Reply(SubmissionStatus.AlreadyApproved);
             if (slot.State != PlayerRoundState.Writing || voting is not null) return Reply(SubmissionStatus.Closed);
+            if (request.Parameters is null || !request.Parameters.IsValid()
+                || (policy.FixedParameters is { } fixedValues && request.Parameters != fixedValues))
+                return Reply(SubmissionStatus.InvalidRequest);
             string description, translation;
             try { description = InputRules.Validate(request.Description, word); translation = InputRules.ValidateTranslation(request.Translation, word); }
             catch (ArgumentException) { return Reply(SubmissionStatus.InvalidRequest); }
             slot.Request = request; slot.ApprovedAt = clock.GetTimestamp();
             slot.Approval = new(matchId, roundId, submissionVersion, Guid.NewGuid(), authenticatedPlayerId,
-                description, translation, clock.GetUtcNow() + policy.GenerationDuration);
+                description, translation, clock.GetUtcNow() + policy.GenerationDuration) { Parameters = request.Parameters.Resolve() };
             slot.State = PlayerRoundState.Generating;
             return Reply(SubmissionStatus.Accepted, slot.Approval);
         }

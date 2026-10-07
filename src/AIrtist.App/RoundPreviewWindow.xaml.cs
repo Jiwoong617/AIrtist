@@ -17,6 +17,7 @@ public partial class RoundPreviewWindow : Window
     private readonly Word[] words;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Dictionary<int, (string Source, string English, long DraftId)> edits = new();
+    private readonly Dictionary<int, string[]> parameterEdits = new();
     private MultiplayerMatchRuntime[] rounds = [];
     private VotingPlayer[] players = [];
     private CancellationTokenSource? loopCancel;
@@ -35,6 +36,7 @@ public partial class RoundPreviewWindow : Window
     public RoundPreviewWindow(RuntimeAssets assets, IDrawingAi sharedAi)
     {
         InitializeComponent(); ai = sharedAi;
+        RoomParameters.RequireFixedSeed();
         string path = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
         words = WordCatalog.Load(path); compatibility = MultiplayerCompatibility.FromVerifiedAssets(assets, path);
         Count.ItemsSource = new[] { 2, 3, 4 }; Count.SelectedIndex = 1;
@@ -95,7 +97,7 @@ public partial class RoundPreviewWindow : Window
     private async Task ResetPreviewAsync()
     {
         Reset.IsEnabled = false; await StopAsync(); if (closed) return;
-        ClearLobby(); players = []; Viewer.ItemsSource = null; edits.Clear(); shownRole = -1; shownDraft = -1;
+        ClearLobby(); players = []; Viewer.ItemsSource = null; edits.Clear(); parameterEdits.Clear(); Parameters.Set(new()); shownRole = -1; shownDraft = -1;
         galleryKey = ""; shownPng = null; Cards.ItemsSource = null; OwnImage.Source = null; OwnImage.Visibility = Visibility.Collapsed;
         Description.Text = English.Text = ProgressLabel.Text = ResultLabel.Text = Meaning.Text = ClockLabel.Text = "";
         Prompt.Text = "설정을 정하고 대기방을 만드세요"; GalleryTitle.Text = "생성한 그림";
@@ -105,7 +107,18 @@ public partial class RoundPreviewWindow : Window
     }
     private void ViewerChanged(object sender, SelectionChangedEventArgs e) { if (IsInitialized) Refresh(); }
     private void TranslateClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.Translate, Description.Text); else Current?.PrepareTranslation(shownRound, Description.Text); });
-    private void ConfirmClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.Confirm, English.Text, Random.Shared.Next()); else Current?.Confirm(shownRound, shownDraft, English.Text, Random.Shared.Next()); });
+    private void DrawClicked(object sender, RoutedEventArgs e) => Act(() =>
+    {
+        var parameters = CurrentRound?.Submission.FixedParameters ?? Parameters.Read();
+        if (online is not null) SendOnline(OnlineAction.Draw, Description.Text, parameters: parameters);
+        else Current?.Draw(shownRound, Description.Text, parameters);
+    });
+    private void ConfirmClicked(object sender, RoutedEventArgs e) => Act(() =>
+    {
+        var parameters = CurrentRound?.Submission.FixedParameters ?? Parameters.Read();
+        if (online is not null) SendOnline(OnlineAction.Confirm, English.Text, parameters: parameters);
+        else Current?.Confirm(shownRound, shownDraft, English.Text, parameters);
+    });
     private void ReviseClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.Revise); else Current?.Revise(shownRound, shownDraft); });
     private void CancelClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.Cancel); else Current?.CancelAi(shownRound); });
     private void VoteClicked(object sender, RoutedEventArgs e) => Act(() => { string id = (string)((Button)sender).Tag; if (online is not null) SendOnline(OnlineAction.Vote, id); else Current?.Vote(shownRound, id); });
@@ -127,6 +140,7 @@ public partial class RoundPreviewWindow : Window
         }
         if (shownRound != match!.RoundId)
         {
+            if (shownRole >= 0) parameterEdits[shownRole] = Parameters.Capture();
             edits.Clear(); shownRole = -1; shownDraft = -1; shownRound = match.RoundId; shownPng = null; galleryKey = "";
             Description.Text = English.Text = ""; OwnImage.Source = null; Cards.ItemsSource = null; commandError = null;
         }
@@ -139,9 +153,14 @@ public partial class RoundPreviewWindow : Window
         int role = Viewer.SelectedIndex;
         if (shownRole != role)
         {
-            if (shownRole >= 0) edits[shownRole] = (Description.Text, English.Text, shownDraft);
+            if (shownRole >= 0)
+            {
+                edits[shownRole] = (Description.Text, English.Text, shownDraft);
+                parameterEdits[shownRole] = Parameters.Capture();
+            }
             var saved = edits.GetValueOrDefault(role); Description.Text = saved.Source ?? ""; English.Text = saved.English ?? "";
             shownRole = role; shownDraft = saved.Source is null ? -1 : saved.DraftId;
+            Parameters.Restore(parameterEdits.GetValueOrDefault(role));
             galleryKey = ""; commandError = null;
         }
         if (state.Draft is { } current && state.AiPhase == RoundAiPhase.Reviewing && shownDraft != current.Id)
@@ -151,7 +170,13 @@ public partial class RoundPreviewWindow : Window
         bool writing = match.Phase == MultiplayerMatchPhase.Playing && state.Submission.Phase == SubmissionClientPhase.Writing && loopFailure is null
             && (onlineView is null || onlineView.Phase == OnlinePhase.Connected);
         bool reviewing = writing && !state.Busy && state.AiPhase == RoundAiPhase.Reviewing;
-        Description.IsEnabled = Translate.IsEnabled = writing && !state.Busy && !reviewing;
+        bool canDraw = writing && !state.Busy && state.AiPhase is RoundAiPhase.Editing or RoundAiPhase.Reviewing;
+        Parameters.IsEnabled = canDraw && state.Submission.FixedParameters is null;
+        if (state.Submission.FixedParameters is { } fixedValues) Parameters.Set(fixedValues);
+        ParameterPolicyLabel.Text = state.Submission.FixedParameters is null ? "자유 설정 · 제출하면 고정됩니다" : "방장 설정으로 고정된 방입니다";
+        if (state.Submission.ApprovedParameters is { } approved)
+            ParameterPolicyLabel.Text += $"\n사용값: CFG {approved.Guidance} / {approved.Steps} Steps\nSeed {approved.Seed}";
+        Description.IsEnabled = Translate.IsEnabled = canDraw;
         English.IsEnabled = Confirm.IsEnabled = Revise.IsEnabled = reviewing;
         Cancel.IsEnabled = state.Busy && match.Phase == MultiplayerMatchPhase.Playing;
         Reset.IsEnabled = online is not null || loopFailure is not null || match.Phase == MultiplayerMatchPhase.Stopped || rounds.All(r => r.Snapshot().Round?.Busy != true);

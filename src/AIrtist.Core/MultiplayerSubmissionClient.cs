@@ -6,6 +6,8 @@ public sealed record SubmissionClientSnapshot(SubmissionClientPhase Phase, Round
     TimeSpan GenerationRemaining, SubmissionStatus? LastSubmissionStatus, bool CanSendImage, string? Failure, ImageSendEnd? UploadEnd)
 {
     public IReadOnlyList<PlayerRoundProgress> Players { get; init; } = [];
+    public GenerationParameters? FixedParameters { get; init; }
+    public GenerationParameters? ApprovedParameters { get; init; }
 }
 
 // Pre-gallery client state. The lobby supplies trusted identities/compatibility
@@ -150,7 +152,7 @@ public sealed class MultiplayerSubmissionClient : IDisposable
             || value.Prompt?.Id is null || !words.TryGetValue(value.Prompt.Id, out var word)
             || value.Prompt.Korean != word.Korean || value.Prompt.Meaning != word.Meaning
             || p is null || !Time(p.WritingDuration, 10) || !Time(p.GenerationDuration, 10) || !Time(p.TransferDuration, 2)
-            || !Time(p.GalleryDuration, 5) || p.Voting is null || !Time(p.Voting.Duration, 10)
+            || !Time(p.GalleryDuration, 5) || p.Voting is null || !Time(p.Voting.Duration, 10) || !p.HasValidParameters
             || value.WritingRemaining < TimeSpan.Zero || value.WritingRemaining > p.WritingDuration) return RoundSyncStatus.InvalidMessage;
         byte[] identity = RoundControlMessages.Encode(value with { WritingRemaining = TimeSpan.Zero });
         if (start is not null)
@@ -166,15 +168,19 @@ public sealed class MultiplayerSubmissionClient : IDisposable
     }
 
     // Called only on the player's final confirmation, never during translation.
-    public SubmissionRequest CreateSubmission(string description, string translation)
+    public SubmissionRequest CreateSubmission(string description, string translation, GenerationParameters? parameters = null)
     {
         lock (sync)
         {
             Advance();
             if (phase != SubmissionClientPhase.Writing) throw new InvalidOperationException("현재 묘사를 확정할 수 없습니다.");
             var word = words[start!.Prompt.Id];
+            var selected = parameters ?? start.Policy.FixedParameters ?? new GenerationParameters();
+            selected.Validate();
+            if (start.Policy.FixedParameters is { } fixedValues && selected != fixedValues)
+                throw new ArgumentException("이 방은 방장이 정한 파라미터로 고정되어 있습니다.");
             pending = new(matchId, roundId, version, Guid.NewGuid().ToString("N"), localId,
-                InputRules.Validate(description, word), InputRules.ValidateTranslation(translation, word));
+                InputRules.Validate(description, word), InputRules.ValidateTranslation(translation, word)) { Parameters = selected };
             phase = SubmissionClientPhase.AwaitingApproval; requestStarted = clock.GetTimestamp(); lastStatus = null; return pending;
         }
     }
@@ -202,7 +208,8 @@ public sealed class MultiplayerSubmissionClient : IDisposable
         }
         var a = result.Approval;
         if (a is null || !SameRound(a.MatchId, a.RoundId, a.SubmissionVersion) || a.PlayerId != localId || a.ApprovalId == Guid.Empty
-            || a.Description != pending.Description || a.Translation != pending.Translation) return RoundSyncStatus.InvalidMessage;
+            || a.Description != pending.Description || a.Translation != pending.Translation
+            || !pending.Parameters.Accepts(a.Parameters)) return RoundSyncStatus.InvalidMessage;
         if (approval is not null)
         {
             if (approval != a) return RoundSyncStatus.Conflict;
@@ -330,7 +337,8 @@ public sealed class MultiplayerSubmissionClient : IDisposable
     public SubmissionClientSnapshot Snapshot()
     {
         lock (sync) { Advance(); return new(phase, start?.Prompt, WritingRemaining(), GenerationRemaining(), lastStatus, phase == SubmissionClientPhase.SendingImage, failure, uploadEnd)
-            { Players = roundProgress?.Players ?? Array.AsReadOnly(players.Select(p => new PlayerRoundProgress(p.Id, PlayerRoundState.Writing)).ToArray()) }; }
+            { Players = roundProgress?.Players ?? Array.AsReadOnly(players.Select(p => new PlayerRoundProgress(p.Id, PlayerRoundState.Writing)).ToArray()),
+                FixedParameters = start?.Policy.FixedParameters, ApprovedParameters = approval?.Parameters }; }
     }
     private void Advance()
     {

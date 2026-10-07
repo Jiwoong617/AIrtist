@@ -25,9 +25,9 @@ public partial class RoundPreviewWindow
         Refresh();
     }
 
-    private void SendOnline(OnlineAction action, string text = "", int number = 0)
+    private void SendOnline(OnlineAction action, string text = "", int number = 0, GenerationParameters? parameters = null)
     {
-        if (!online!.Post(new(action, onlineGeneration, text, Number: number, RoundId: shownRound, Revision: shownDraft)))
+        if (!online!.Post(new(action, onlineGeneration, text, Number: number, RoundId: shownRound, Revision: shownDraft, Parameters: parameters)))
             throw new InvalidOperationException("이전 요청을 처리하고 있습니다. 잠시 후 다시 시도해 주세요.");
     }
 
@@ -56,6 +56,8 @@ public partial class RoundPreviewWindow
                 shownOnlineSettings = state.Settings; RoundCount.SelectedItem = state.Settings.RoundCount;
                 WritingSeconds.Text = Seconds(state.Settings.RoundPolicy.WritingDuration).ToString();
                 GenerationSeconds.Text = Seconds(state.Settings.RoundPolicy.GenerationDuration).ToString();
+                LockRoomParameters.IsChecked = state.Settings.RoundPolicy.FixedParameters is not null;
+                if (state.Settings.RoundPolicy.FixedParameters is { } fixedValues) RoomParameters.Set(fixedValues);
             }
             shownLobbyRevision = state.Revision;
         }
@@ -67,6 +69,9 @@ public partial class RoundPreviewWindow
         ApplySettings.Visibility = waiting && host ? Visibility.Visible : Visibility.Collapsed;
         ApplySettings.IsEnabled = waiting && host && pending;
         RoundCount.IsEnabled = WritingSeconds.IsEnabled = GenerationSeconds.IsEnabled = waiting && host;
+        LockRoomParameters.IsEnabled = RoomParameters.IsEnabled = waiting && host;
+        Setup.Visibility = playing ? Visibility.Collapsed : Visibility.Visible;
+        Start.Visibility = playing ? Visibility.Collapsed : Visibility.Visible;
         Start.IsEnabled = waiting && host && !pending && session!.CanStart;
         Ready.IsEnabled = waiting && !pending && session?.PendingReady == false;
         Reset.IsEnabled = true;

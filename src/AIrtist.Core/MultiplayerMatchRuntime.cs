@@ -14,7 +14,7 @@ public sealed record MultiplayerMatchSettings(int RoundCount, MultiplayerRoundPo
         var p = RoundPolicy;
         return RoundCount is >= 1 and <= 10 && Time(ResultConfirmationTimeout, 120) && p is not null
             && Time(p.WritingDuration, 600) && Time(p.GenerationDuration, 600) && Time(p.TransferDuration, 120)
-            && Time(p.GalleryDuration, 300) && p.Voting is not null && Time(p.Voting.Duration, 600);
+            && Time(p.GalleryDuration, 300) && p.Voting is not null && Time(p.Voting.Duration, 600) && p.HasValidParameters;
     }
 }
 public enum MultiplayerMatchPhase { AwaitingStart, Playing, BetweenRounds, Completed, Stopped }
@@ -155,8 +155,11 @@ public sealed class MultiplayerMatchRuntime : IDisposable
             words, ai, lease, isHost ? start.WordId : null, start.Settings.RoundPolicy, clock);
     }
     public void PrepareTranslation(Guid expected, string description) { lock (sync) Active(expected).PrepareTranslation(description); }
+    public void Draw(Guid expected, string description, GenerationParameters parameters) { lock (sync) Active(expected).Draw(description, parameters); }
     public void Revise(Guid expected, long draftId) { lock (sync) Active(expected).Revise(draftId); }
     public void Confirm(Guid expected, long draftId, string translation, int seed) { lock (sync) Active(expected).Confirm(draftId, translation, seed); }
+    public void Confirm(Guid expected, long draftId, string translation, GenerationParameters parameters)
+    { lock (sync) Active(expected).Confirm(draftId, translation, parameters); }
     public void Vote(Guid expected, string artwork) { lock (sync) Active(expected).Vote(artwork); }
     public void CloseVoting(Guid expected) { lock (sync) Active(expected).CloseVoting(); }
     public void CancelAi(Guid expected) { lock (sync) Active(expected).CancelAi(); }

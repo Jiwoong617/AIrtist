@@ -6,9 +6,10 @@ using AIrtist.Eos;
 namespace AIrtist.App;
 
 internal enum OnlinePhase { Offline, Connecting, Connected, Leaving, Failed, Closed }
-internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound }
+internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound, Draw }
 internal sealed record OnlineCommand(OnlineAction Action, long Generation, string Text = "", string Extra = "",
-    int Number = 0, long Revision = 0, Guid RoundId = default, bool Ready = false, MultiplayerMatchSettings? Settings = null);
+    int Number = 0, long Revision = 0, Guid RoundId = default, bool Ready = false, MultiplayerMatchSettings? Settings = null,
+    GenerationParameters? Parameters = null);
 internal sealed record OnlineSnapshot(long Generation, OnlinePhase Phase, bool HasSession, string? LocalId, EosLobbySnapshot? Room,
     LobbyBootstrapSnapshot? Connection, LobbySessionSnapshot? Lobby, MatchRuntimeSnapshot? Match, string Message, string? Error);
 
@@ -27,6 +28,7 @@ internal sealed class OnlineSessionWorker
     private readonly Thread thread;
     private IOnlineConnection? connection;
     private MultiplayerLobbySession? core;
+    private MultiplayerMatchSettings? createdSettings;
     private TaskCompletionSource? disconnect;
     private bool disconnectRequested, stopping, leaving, failed;
     private long generation, leaveStarted;
@@ -133,7 +135,10 @@ internal sealed class OnlineSessionWorker
         switch (command.Action)
         {
             case OnlineAction.Search: connection.Search(); break;
-            case OnlineAction.Create: connection.Create(command.Number); break;
+            case OnlineAction.Create:
+                var settings = command.Settings ?? MultiplayerMatchSettings.Default;
+                if (!settings.IsValid()) throw new ArgumentException("방 설정을 확인해 주세요.");
+                connection.Create(command.Number); createdSettings = settings; break;
             case OnlineAction.Join: connection.Join(command.Text); break;
             case OnlineAction.Prepare:
                 if (connection.Bootstrap is not null) throw new InvalidOperationException();
@@ -142,7 +147,9 @@ internal sealed class OnlineSessionWorker
             case OnlineAction.Settings: RequiredLobby().UpdateSettings(command.Revision, command.Settings!); break;
             case OnlineAction.Start: RequiredLobby().Start(command.Revision); break;
             case OnlineAction.Translate: RequiredMatch().PrepareTranslation(command.RoundId, command.Text); break;
-            case OnlineAction.Confirm: RequiredMatch().Confirm(command.RoundId, command.Revision, command.Text, command.Number); break;
+            case OnlineAction.Draw: RequiredMatch().Draw(command.RoundId, command.Text, command.Parameters ?? throw new ArgumentException("생성 설정이 필요합니다.")); break;
+            case OnlineAction.Confirm: RequiredMatch().Confirm(command.RoundId, command.Revision, command.Text,
+                command.Parameters ?? new GenerationParameters(Seed: command.Number)); break;
             case OnlineAction.Revise: RequiredMatch().Revise(command.RoundId, command.Revision); break;
             case OnlineAction.Cancel: RequiredMatch().CancelAi(command.RoundId); break;
             case OnlineAction.Vote: RequiredMatch().Vote(command.RoundId, command.Text); break;
@@ -170,7 +177,8 @@ internal sealed class OnlineSessionWorker
         if (!failed && core is null && connection.Bootstrap?.State == LobbyBootstrapState.Ready)
         {
             var prepared = connection.TakeConnection();
-            try { core = MultiplayerLobbySession.FromPreparedConnection(prepared, compatibility, words, ai); }
+            try { core = MultiplayerLobbySession.FromPreparedConnection(prepared, compatibility, words, ai,
+                prepared.HostId == prepared.LocalId ? createdSettings : null); }
             catch { prepared.Transport.Dispose(); throw; }
         }
         if (!failed) core?.Tick();
@@ -193,7 +201,7 @@ internal sealed class OnlineSessionWorker
     }
     private void EndDisconnect(bool confirmed)
     {
-        connection?.Dispose(); connection = null; leaving = failed = false;
+        connection?.Dispose(); connection = null; createdSettings = null; leaving = failed = false;
         message = confirmed ? "접속을 종료했습니다." : "로컬 접속을 종료했습니다. 서비스의 방 나가기 응답은 확인하지 못했습니다.";
         Publish();
         lock (gate) { disconnect?.TrySetResult(); disconnect = null; }

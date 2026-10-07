@@ -6,6 +6,8 @@ namespace AIrtist.App;
 
 public partial class RoundPreviewWindow
 {
+    private void RoomParametersChanged(object sender, RoutedEventArgs e)
+    { if (RoomParameters is not null) RoomParameters.Visibility = LockRoomParameters.IsChecked == true ? Visibility.Visible : Visibility.Collapsed; }
     private MultiplayerLobbySession[] sessions = [];
     private MultiplayerLobbySession? CurrentLobby => Viewer.SelectedIndex >= 0 && Viewer.SelectedIndex < sessions.Length ? sessions[Viewer.SelectedIndex] : null;
 
@@ -16,7 +18,8 @@ public partial class RoundPreviewWindow
             || RoundCount.SelectedItem is not int count)
             throw new ArgumentException("작성·생성 시간을 1~600초로 입력해 주세요.");
         return MultiplayerMatchSettings.Default with { RoundCount = count, RoundPolicy = MultiplayerRoundPolicy.Default with
-            { WritingDuration = TimeSpan.FromSeconds(writing), GenerationDuration = TimeSpan.FromSeconds(generating) } };
+            { WritingDuration = TimeSpan.FromSeconds(writing), GenerationDuration = TimeSpan.FromSeconds(generating),
+                FixedParameters = LockRoomParameters.IsChecked == true ? RoomParameters.Read() : null } };
     }
 
     private void CreateLobbyClicked(object sender, RoutedEventArgs e) => Act(() =>
@@ -90,6 +93,9 @@ public partial class RoundPreviewWindow
         Setup.IsEnabled = !playing;
         Count.IsEnabled = WordChoice.IsEnabled = !hasRoom;
         RoundCount.IsEnabled = WritingSeconds.IsEnabled = GenerationSeconds.IsEnabled = !hasRoom || (waiting && host);
+        LockRoomParameters.IsEnabled = RoomParameters.IsEnabled = !hasRoom || (waiting && host);
+        Setup.Visibility = playing ? Visibility.Collapsed : Visibility.Visible;
+        Start.Visibility = playing ? Visibility.Collapsed : Visibility.Visible;
         CreateLobby.Visibility = !hasRoom ? Visibility.Visible : Visibility.Collapsed;
         ApplySettings.Visibility = waiting ? Visibility.Visible : Visibility.Collapsed;
         ApplySettings.IsEnabled = waiting && host && pending;

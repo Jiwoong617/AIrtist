@@ -1,0 +1,14 @@
+<UserControl x:Class="AIrtist.App.ParameterEditor" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <UserControl.Resources>
+    <Style TargetType="TextBox"><Setter Property="Background" Value="#111824"/><Setter Property="Foreground" Value="#EDF1F6"/><Setter Property="CaretBrush" Value="#A7E3C2"/><Setter Property="BorderBrush" Value="#45556B"/><Setter Property="Padding" Value="8,4"/><Setter Property="FontSize" Value="14"/></Style>
+  </UserControl.Resources>
+  <StackPanel>
+    <TextBlock Text="CFG · 1~20" FontWeight="Bold" Margin="0,0,0,4"/>
+    <TextBox x:Name="GuidanceInput" Text="7.0" MaxLength="12" AutomationProperties.Name="CFG 묘사 반영 강도" Margin="0,0,0,10" ToolTip="묘사 반영 강도 · 기본 7.0"/>
+    <TextBlock Text="Steps · 1~50" FontWeight="Bold" Margin="0,0,0,4"/>
+    <TextBox x:Name="StepsInput" Text="25" MaxLength="3" AutomationProperties.Name="Steps 생성 단계 수" Margin="0,0,0,10" ToolTip="기본 25 · 높을수록 오래 걸리며 품질이 항상 좋아지는 것은 아닙니다."/>
+    <TextBlock Text="Seed" FontWeight="Bold" Margin="0,0,0,4"/>
+    <TextBox x:Name="SeedInput" Text="42" MaxLength="10" AutomationProperties.Name="Seed 시작 노이즈 번호" IsEnabled="False" ToolTip="0~2147483647 · 같은 실행 환경과 설정에서 결과를 비교할 수 있어요."/>
+    <CheckBox x:Name="RandomSeed" Content="매번 무작위" IsChecked="True" Foreground="#EDF1F6" Margin="0,6,0,0" Checked="RandomChanged" Unchecked="RandomChanged"/>
+  </StackPanel>
+</UserControl>

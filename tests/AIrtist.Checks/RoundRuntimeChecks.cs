@@ -22,12 +22,13 @@ internal static class RoundRuntimeChecks
     private sealed class Ai(byte[] png) : IDrawingAi
     {
         public readonly ConcurrentBag<string> Sources = new(), Prompts = new();
-        public bool FailGeneration, BlockGeneration;
+        public bool FailGeneration, BlockGeneration, BlockTranslation;
+        public string Translation = "a red fruit";
         public readonly ManualResetEventSlim Release = new(false);
         public int Active, Maximum;
         private void Enter() { int count = Interlocked.Increment(ref Active); Maximum = Math.Max(Maximum, count); }
         public string Translate(string description, CancellationToken token)
-        { Enter(); try { Sources.Add(description); token.ThrowIfCancellationRequested(); return "a red fruit"; } finally { Interlocked.Decrement(ref Active); } }
+        { Enter(); try { Sources.Add(description); if (BlockTranslation) Release.Wait(); token.ThrowIfCancellationRequested(); return Translation; } finally { Interlocked.Decrement(ref Active); } }
         public byte[] Generate(string translation, int seed, CancellationToken token, Action<string> progress)
         {
             Enter(); try
@@ -78,7 +79,30 @@ internal static class RoundRuntimeChecks
     {
         await Play(); await FailureAndLateResults(); await QueuedAiCancellation(); await GenerationDeadline();
         await EmptyRound(); await OneImageRound(); ProgressValidation(); TransportBounds();
+        await OneClickTranslation();
         Console.WriteLine("Round runtime: autonomous timers/broadcasts/image scheduling/3-player voting, shared AI serialization, review correction, cancel/failure/stale-result rejection and empty-round final sync passed (local transport, fake AI)");
+    }
+    private static async Task OneClickTranslation()
+    {
+        foreach (bool deadline in new[] { false, true })
+        {
+            using var world = new World(); var player = world.Runtimes[1];
+            await world.Until(() => player.Snapshot().Submission.Phase == SubmissionClientPhase.Writing);
+            world.RawAi.BlockTranslation = true; player.Draw("붉은 과일", new(Seed: 42));
+            await world.Until(() => world.RawAi.Sources.Count == 1);
+            Reject(() => player.Draw("다른 과일", new()));
+            if (deadline) world.Clock.Advance(TimeSpan.FromMinutes(10)); else player.CancelAi();
+            player.Tick(); world.RawAi.Release.Set(); await world.Until(() => !player.Snapshot().Busy);
+            Require(world.RawAi.Prompts.IsEmpty && player.Snapshot().OwnPng is null, "Cancelled/expired translation submitted automatically");
+        }
+        using var retry = new World(); var guest = retry.Runtimes[1];
+        await retry.Until(() => guest.Snapshot().Submission.Phase == SubmissionClientPhase.Writing);
+        retry.RawAi.Translation = "an apple"; guest.Draw("붉은 과일", new(Seed: 42));
+        await retry.Until(() => !guest.Snapshot().Busy);
+        Require(guest.Snapshot().Submission.Phase == SubmissionClientPhase.Writing && retry.RawAi.Prompts.IsEmpty, "Forbidden translated answer consumed generation");
+        retry.RawAi.Translation = "a red fruit"; guest.Draw("붉은 과일", new(Seed: 42));
+        await retry.Until(() => guest.Snapshot().OwnPng is not null);
+        Require(retry.RawAi.Prompts.Count == 1, "One-click retry generated more than once");
     }
     private static async Task Play()
     {

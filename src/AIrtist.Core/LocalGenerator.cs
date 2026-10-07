@@ -8,9 +8,11 @@ public sealed record GenerationSettings(int Width, int Height, int Steps, float 
 public sealed class LocalGenerator(RuntimeAssets assets)
 {
     public byte[] Generate(string description, int seed, CancellationToken token, Action<string>? progress = null,
-        string? profileDirectory = null, float[]? initialLatents = null)
+        string? profileDirectory = null, float[]? initialLatents = null, GenerationParameters? parameters = null)
     {
-        try { return GenerateCore(description, seed, token, progress, profileDirectory, initialLatents); }
+        var selected = parameters ?? new GenerationParameters(Seed: seed);
+        selected.Validate();
+        try { return GenerateCore(description, selected.Seed ?? seed, token, progress, profileDirectory, initialLatents, selected); }
         catch (OnnxRuntimeException)
         {
             // All using scopes in GenerateCore have released their native sessions.
@@ -20,11 +22,12 @@ public sealed class LocalGenerator(RuntimeAssets assets)
     }
 
     private byte[] GenerateCore(string description, int seed, CancellationToken token, Action<string>? progress,
-        string? profileDirectory, float[]? initialLatents)
+        string? profileDirectory, float[]? initialLatents, GenerationParameters parameters)
     {
         var settings = assets.Read<GenerationSettings>("generation/settings.json");
-        var scheduler = new DpmScheduler(assets.Read<SchedulerData>("generation/scheduler.json"));
-        if (settings.Width != 512 || settings.Height != 512 || settings.Steps != 25 || scheduler.Steps.Length != 25)
+        var baseline = assets.Read<SchedulerData>("generation/scheduler.json");
+        var scheduler = new DpmScheduler(parameters.Steps == 25 ? baseline : DpmScheduler.CreateSchedule(parameters.Steps));
+        if (settings.Width != 512 || settings.Height != 512 || settings.Steps != 25 || baseline.Steps.Length != 25)
             throw new InvalidDataException("검증되지 않은 생성 설정입니다.");
         var tokenizer = new ClipTokenizer(assets);
         long[] ids = tokenizer.Encode("").Concat(tokenizer.Encode(description + ", " + settings.Style)).ToArray();
@@ -44,7 +47,7 @@ public sealed class LocalGenerator(RuntimeAssets assets)
             for (int step = 0; step < scheduler.Steps.Length; step++)
             {
                 token.ThrowIfCancellationRequested();
-                progress?.Invoke($"그림을 그리고 있어요 · {step + 1}/25");
+                progress?.Invoke($"그림을 그리고 있어요 · {step + 1}/{parameters.Steps}");
                 float[] batch = latents.Concat(latents).ToArray();
                 float[] noise = OrtSessions.Run(unet, [
                     NamedOnnxValue.CreateFromTensor("sample", new DenseTensor<float>(batch, [2, 4, 64, 64])),
@@ -52,7 +55,7 @@ public sealed class LocalGenerator(RuntimeAssets assets)
                     NamedOnnxValue.CreateFromTensor("encoder_hidden_states", new DenseTensor<float>(embeddings, [2, 77, 768]))
                 ], token, terminateOnCancellation: false);
                 var guided = new float[latents.Length];
-                for (int i = 0; i < guided.Length; i++) guided[i] = noise[i] + settings.Guidance * (noise[i + guided.Length] - noise[i]);
+                for (int i = 0; i < guided.Length; i++) guided[i] = noise[i] + parameters.Guidance * (noise[i + guided.Length] - noise[i]);
                 latents = scheduler.Step(step, latents, guided);
             }
             End(unet);

@@ -20,6 +20,9 @@ internal static class OnlineSmoke
     private sealed class Ai : IDrawingAi
     {
         public int Generated;
+        public readonly System.Collections.Concurrent.ConcurrentBag<GenerationParameters> Parameters = new();
+        public byte[] Generate(string input, GenerationParameters parameters, CancellationToken token, Action<string> progress)
+        { parameters.Validate(); Parameters.Add(parameters); return Generate(input, parameters.Seed!.Value, token, progress); }
         public string Translate(string input, CancellationToken token) { token.ThrowIfCancellationRequested(); return "a round red object"; }
         public byte[] Generate(string input, int seed, CancellationToken token, Action<string> progress)
         {
@@ -30,8 +33,10 @@ internal static class OnlineSmoke
             using var output = new MemoryStream(); encoder.Save(output); return output.ToArray();
         }
     }
-    internal static async Task<object> Run(RuntimeAssets assets, string output)
+    internal static async Task<object> Run(RuntimeAssets assets, string output, bool locked = false)
     {
+        Directory.CreateDirectory(output);
+        var fixedValues = locked ? new GenerationParameters(4.25f, 11, 987) : null;
         string path = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
         var words = WordCatalog.Load(path); var compatibility = MultiplayerCompatibility.FromVerifiedAssets(assets, path);
         var ai = new Ai();
@@ -65,6 +70,7 @@ internal static class OnlineSmoke
         using var world = new World(compatibility.ConnectionHash());
         var workers = world.Factories.Select(f => new OnlineSessionWorker(compatibility, words, ai, f)).ToArray();
         var windows = new List<RoundPreviewWindow>();
+        OnlineRoomWindow? creation = null;
         try
         {
             for (int i = 0; i < 3; i++) workers[i].Post(new(OnlineAction.Connect, 0, "mock", "검사"));
@@ -78,7 +84,8 @@ internal static class OnlineSmoke
             await Until(() => world.Factories[0].Searches == 32);
             Require(!workers[0].Post(new(OnlineAction.Translate, workers[0].Snapshot.Generation, new('x', 4097))), "Oversize command accepted");
             // Search/create/join pass through the worker boundary.
-            workers[0].Post(new(OnlineAction.Create, workers[0].Snapshot.Generation, Number: 3));
+            creation = new OnlineRoomWindow(assets, ai, workers[0], "mock");
+            creation.SmokeCreateWithParameters(fixedValues, output);
             for (int i = 1; i < 3; i++) workers[i].Post(new(OnlineAction.Join, workers[i].Snapshot.Generation, "mock-room"));
             await Until(() => workers.All(w => w.Snapshot.Room?.State == EosLobbyState.Joined));
             for (int i = 0; i < 2; i++) workers[i].Post(new(OnlineAction.Prepare, workers[i].Snapshot.Generation));
@@ -86,6 +93,7 @@ internal static class OnlineSmoke
             await Task.Delay(200); Require(workers.All(w => w.Snapshot.Lobby is null), "Partial connection opened Core lobby");
             workers[2].Post(new(OnlineAction.Prepare, workers[2].Snapshot.Generation));
             await Until(() => workers.All(w => w.Snapshot.Lobby?.Lobby is not null));
+            Require(workers.All(w => w.Snapshot.Lobby!.Lobby!.Settings.RoundPolicy.FixedParameters == fixedValues), "Created room parameters did not reach all peers");
             windows.AddRange(workers.Select(w => new RoundPreviewWindow(assets, ai, w)));
             windows[0].OnlineSmokeSettings();
             await Until(() => workers.All(w => w.Snapshot.Lobby?.Lobby?.Settings.RoundCount == 2));
@@ -101,10 +109,7 @@ internal static class OnlineSmoke
             for (int round = 1; round <= 2; round++)
             {
                 await Until(() => workers.All(w => w.Snapshot.Match?.RoundNumber == round && w.Snapshot.Match.Round?.Submission.Phase == SubmissionClientPhase.Writing));
-                foreach (var window in windows) window.OnlineSmokeTranslate();
-                await Until(() => workers.All(w => w.Snapshot.Match?.Round?.AiPhase == RoundAiPhase.Reviewing));
-                windows[0].OnlineSmokeRender(Path.Combine(output, $"online-{round}-review.png"));
-                foreach (var window in windows) window.OnlineSmokeConfirm();
+                for (int i = 0; i < windows.Count; i++) windows[i].OnlineSmokeDraw(i);
                 await Until(() => workers.All(w => w.Snapshot.Match?.Round?.Gallery.CanVote == true));
                 windows[0].OnlineSmokeRender(Path.Combine(output, $"online-{round}-gallery.png"));
                 int[] targets = [1, 0, 1];
@@ -120,6 +125,9 @@ internal static class OnlineSmoke
             }
             await Until(() => workers.All(w => w.Snapshot.Match?.Phase == MultiplayerMatchPhase.Completed));
             Require(ai.Generated == 6, "Generation count wrong");
+            Require(ai.Parameters.Count == 6 && (locked ? ai.Parameters.All(p => p == fixedValues)
+                : Enumerable.Range(0, 3).All(i => ai.Parameters.Count(p => p == new GenerationParameters(5f + i * .5f, 8 + i, 200 + i)) == 2)),
+                "Worker or match pipeline dropped fixed/free parameter values");
             // Failure keeps confirmed results visible and closes command access.
             world.Factories[0].ThrowTick = true;
             await Until(() => workers[0].Snapshot.Phase == OnlinePhase.Failed);
@@ -158,11 +166,13 @@ internal static class OnlineSmoke
             foreach (var factory in world.Factories) { factory.Block = false; factory.Release.Set(); }
             foreach (var window in windows) window.Close();
             await Task.WhenAll(workers.Select(w => w.StopAsync()));
+            creation?.Close();
         }
         Require(world.Factories.All(f => f.ThreadId != Environment.CurrentManagedThreadId && f.ThreadId != 0 && f.Disposed && f.Created == f.Closed), "Thread/session cleanup failed");
         Require(world.Factories.Select(f => f.ThreadId).Distinct().Count() == 3, "Workers did not use independent threads");
         Require(workers.All(w => w.Snapshot.Phase == OnlinePhase.Closed && !w.Post(new(OnlineAction.Search, w.Snapshot.Generation))), "Closed worker accepted work");
-        return new { status = "passed", players = 3, rounds = 2, fakePngGenerations = ai.Generated, queueLimit = 32,
+        return new { status = "passed", players = 3, rounds = 2, fixedRoomParameters = fixedValues,
+            verifiedParameters = ai.Parameters.ToArray(), fakePngGenerations = ai.Generated, queueLimit = 32,
             separateNetworkThreads = 3, missingSettings = "safe failure", staleCommand = "rejected", closedWorkerWindows = "passed", realEos = false, realAi = false };
     }
 

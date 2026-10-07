@@ -24,6 +24,7 @@ public partial class OnlineRoomWindow : Window
     internal OnlineRoomWindow(RuntimeAssets assets, IDrawingAi ai, OnlineSessionWorker worker, string settingsPath)
     {
         InitializeComponent(); this.assets = assets; this.ai = ai; this.worker = worker; view = worker.Snapshot;
+        RoomParameters.RequireFixedSeed();
         SettingsPath.Text = settingsPath;
         Capacity.ItemsSource = Enumerable.Range(2, 15).ToArray(); Capacity.SelectedItem = 4;
         timer.Tick += (_, _) => Refresh(); timer.Start(); Refresh();
@@ -34,6 +35,7 @@ public partial class OnlineRoomWindow : Window
         var dialog = new OpenFileDialog { Filter = "EOS 설정 (*.json)|*.json", CheckFileExists = true };
         if (dialog.ShowDialog(this) == true) SettingsPath.Text = dialog.FileName;
     }
+    private void BackClicked(object sender, RoutedEventArgs e) => Close();
     private void Send(OnlineAction action, string text = "", string extra = "", int number = 0)
     {
         localError = worker.Post(new(action, view.Generation, text, extra, number)) ? "" : "이전 요청을 처리 중입니다. 잠시 후 다시 시도해 주세요.";
@@ -46,7 +48,20 @@ public partial class OnlineRoomWindow : Window
         { localError = "표시 이름을 짧게 입력해 주세요. 한글 10자 또는 영문 32자까지 가능합니다."; Refresh(); return; }
         Send(OnlineAction.Connect, SettingsPath.Text, name);
     }
-    private void CreateClicked(object sender, RoutedEventArgs e) => Send(OnlineAction.Create, number: (int)Capacity.SelectedItem);
+    private void RoomParametersChanged(object sender, RoutedEventArgs e)
+    { if (RoomParameters is not null) RoomParameters.Visibility = LockRoomParameters.IsChecked == true ? Visibility.Visible : Visibility.Collapsed; }
+    private void CreateClicked(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var settings = MultiplayerMatchSettings.Default with { RoundPolicy = MultiplayerRoundPolicy.Default with
+                { FixedParameters = LockRoomParameters.IsChecked == true ? RoomParameters.Read() : null } };
+            localError = worker.Post(new(OnlineAction.Create, view.Generation, Number: (int)Capacity.SelectedItem, Settings: settings))
+                ? "" : "이전 요청을 처리 중입니다. 잠시 후 다시 시도해 주세요.";
+        }
+        catch (ArgumentException ex) { localError = ex.Message; }
+        Refresh();
+    }
     private void SearchClicked(object sender, RoutedEventArgs e) => Send(OnlineAction.Search);
     private void JoinClicked(object sender, RoutedEventArgs e) { if (Rooms.SelectedItem is RoomItem item) Send(OnlineAction.Join, item.Id); }
     private void PrepareClicked(object sender, RoutedEventArgs e) => Send(OnlineAction.Prepare);
@@ -60,9 +75,13 @@ public partial class OnlineRoomWindow : Window
     {
         if (view.Lobby?.Lobby is null || busy) return;
         busy = true; timer.Stop();
-        try { new RoundPreviewWindow(assets, ai, worker) { Owner = this }.ShowDialog(); }
+        try
+        {
+            var game = new RoundPreviewWindow(assets, ai, worker) { Owner = this, Width = Width, Height = Height };
+            Hide(); game.ShowDialog();
+        }
         catch (Exception) { localError = "경기 화면을 열지 못했습니다. 앱 파일과 참가자 연결을 확인해 주세요."; }
-        finally { await worker.DisconnectAsync(); busy = false; if (!closing) { timer.Start(); Refresh(); } }
+        finally { await worker.DisconnectAsync(); busy = false; if (!closing) { Show(); timer.Start(); Refresh(); } }
     }
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
@@ -81,6 +100,7 @@ public partial class OnlineRoomWindow : Window
         Connect.IsEnabled = Browse.IsEnabled = PlayerName.IsEnabled = offline && !busy;
         Leave.IsEnabled = !busy && view.Phase is OnlinePhase.Connected or OnlinePhase.Connecting or OnlinePhase.Failed;
         Create.IsEnabled = Search.IsEnabled = Capacity.IsEnabled = idle;
+        LockRoomParameters.IsEnabled = RoomParameters.IsEnabled = idle;
         Join.IsEnabled = idle && Rooms.SelectedItem is RoomItem;
         Prepare.IsEnabled = !busy && view.Phase == OnlinePhase.Connected && view.Room?.State == EosLobbyState.Joined
             && view.Room.Membership?.Members.Count >= 2 && view.Connection is null;

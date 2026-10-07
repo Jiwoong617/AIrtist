@@ -6,6 +6,13 @@ public interface IDrawingAi
 {
     string Translate(string description, CancellationToken token);
     byte[] Generate(string translation, int seed, CancellationToken token, Action<string> progress);
+    byte[] Generate(string translation, GenerationParameters parameters, CancellationToken token, Action<string> progress)
+    {
+        parameters.Validate();
+        if (parameters.Guidance != 7 || parameters.Steps != 25)
+            throw new NotSupportedException("이 실행기는 사용자 생성 설정을 지원하지 않습니다.");
+        return Generate(translation, parameters.Resolve().Seed!.Value, token, progress);
+    }
 }
 
 public sealed class LocalDrawingAi(RuntimeAssets assets) : IDrawingAi
@@ -13,6 +20,11 @@ public sealed class LocalDrawingAi(RuntimeAssets assets) : IDrawingAi
     public string Translate(string description, CancellationToken token) => new LocalTranslator(assets).Translate(description, token);
     public byte[] Generate(string translation, int seed, CancellationToken token, Action<string> progress)
         => new LocalGenerator(assets).Generate(translation, seed, token, progress);
+    public byte[] Generate(string translation, GenerationParameters parameters, CancellationToken token, Action<string> progress)
+    {
+        var resolved = parameters.Resolve();
+        return new LocalGenerator(assets).Generate(translation, resolved.Seed!.Value, token, progress, parameters: resolved);
+    }
 }
 
 // Share one instance across windows/local preview roles on the same PC. Waiting
@@ -30,11 +42,20 @@ public sealed class SerializedDrawingAi(IDrawingAi inner) : IDrawingAi
         gate.Wait(token); try { token.ThrowIfCancellationRequested(); return inner.Generate(translation, seed, token, progress); }
         finally { gate.Release(); }
     }
+    public byte[] Generate(string translation, GenerationParameters parameters, CancellationToken token, Action<string> progress)
+    {
+        parameters.Validate();
+        gate.Wait(token); try { token.ThrowIfCancellationRequested(); return inner.Generate(translation, parameters, token, progress); }
+        finally { gate.Release(); }
+    }
 }
 
 public enum DrawingPhase { Editing, Translating, Reviewing, Generating, Completed }
 public sealed record DrawingDraft(long Id, string Description, string Translation, double Seconds);
-public sealed record DrawingResult(string Description, string Translation, byte[] Png, int Seed, double TranslationSeconds, double GenerationSeconds);
+public sealed record DrawingResult(string Description, string Translation, byte[] Png, int Seed, double TranslationSeconds, double GenerationSeconds)
+{
+    public GenerationParameters Parameters { get; init; } = new(Seed: Seed);
+}
 public sealed record DrawingSnapshot(long Version, DrawingPhase Phase, bool Busy, string Message, DrawingDraft? Draft, DrawingResult? Result);
 
 // Free drawing owns one AI operation at a time, without words, rounds or submission rights.
@@ -64,6 +85,37 @@ public sealed class DrawingController : IDisposable
         get { lock (sync) { CheckAlive(); return new(version, phase, active is not null, message, draft, result); } }
     }
 
+    public Task DrawAsync(long expectedVersion, string description, GenerationParameters parameters)
+    {
+        lock (sync)
+        {
+            CheckCommand(expectedVersion);
+            string input = InputRules.ValidateDescription(description);
+            var selected = parameters.Resolve();
+            draft = null;
+            var request = Begin(DrawingPhase.Translating, "그림을 준비하고 있어요");
+            long operation = version, currentDraft = ++draftId;
+            return RunAsync(operation, request, true, token =>
+            {
+                var watch = Stopwatch.StartNew();
+                string translation = InputRules.ValidateTranslation(ai.Translate(input, token));
+                token.ThrowIfCancellationRequested();
+                var prepared = new DrawingDraft(currentDraft, input, translation, watch.Elapsed.TotalSeconds);
+                lock (sync)
+                {
+                    if (disposed || version != operation) throw new OperationCanceledException();
+                    phase = DrawingPhase.Generating; message = "그림을 그리고 있어요";
+                }
+                watch.Restart();
+                byte[] png = ai.Generate(translation, selected, token, text =>
+                {
+                    lock (sync) if (!disposed && version == operation && !token.IsCancellationRequested) message = text;
+                });
+                return (prepared, new DrawingResult(input, translation, png, selected.Seed!.Value, prepared.Seconds, watch.Elapsed.TotalSeconds) { Parameters = selected });
+            });
+        }
+    }
+
     public Task PrepareTranslationAsync(long expectedVersion, string description)
     {
         lock (sync)
@@ -83,10 +135,14 @@ public sealed class DrawingController : IDisposable
     }
 
     public Task GenerateAsync(long expectedVersion, long expectedDraftId, string translation, int seed)
+        => GenerateAsync(expectedVersion, expectedDraftId, translation, new GenerationParameters(Seed: seed));
+
+    public Task GenerateAsync(long expectedVersion, long expectedDraftId, string translation, GenerationParameters parameters)
     {
         lock (sync)
         {
             CheckDraft(expectedVersion, expectedDraftId);
+            var selected = parameters.Resolve();
             string input = InputRules.ValidateTranslation(translation);
             var confirmed = draft! with { Translation = input };
             draft = confirmed;
@@ -95,12 +151,12 @@ public sealed class DrawingController : IDisposable
             return RunAsync(operation, request, true, token =>
             {
                 var watch = Stopwatch.StartNew();
-                byte[] png = ai.Generate(input, seed, token, text =>
+                byte[] png = ai.Generate(input, selected, token, text =>
                 {
                     lock (sync)
                         if (!disposed && version == operation && !token.IsCancellationRequested) message = text;
                 });
-                return (confirmed, new DrawingResult(confirmed.Description, input, png, seed, confirmed.Seconds, watch.Elapsed.TotalSeconds));
+                return (confirmed, new DrawingResult(confirmed.Description, input, png, selected.Seed!.Value, confirmed.Seconds, watch.Elapsed.TotalSeconds) { Parameters = selected });
             });
         }
     }
@@ -162,11 +218,12 @@ public sealed class DrawingController : IDisposable
             lock (sync)
             {
                 if (disposed || version != operation) return;
-                phase = generating ? DrawingPhase.Reviewing : DrawingPhase.Editing;
+                bool generationFailed = phase == DrawingPhase.Generating;
+                phase = generating && draft is not null ? DrawingPhase.Reviewing : DrawingPhase.Editing;
                 message = combined.IsCancellationRequested
                     ? request.IsCancellationRequested ? "작업을 취소했습니다. 다시 시도할 수 있어요" : "AI 처리 제한 시간이 지났습니다. 다시 시도할 수 있어요"
                     : ex is ArgumentException or InvalidDataException ? ex.Message
-                    : generating ? "그림을 만들지 못했습니다. GPU 사용 상태를 확인하고 다시 시도해 주세요" : "번역에 실패했습니다. 묘사를 고치고 다시 시도해 주세요";
+                    : generationFailed ? "그림을 만들지 못했습니다. GPU 사용 상태를 확인하고 다시 시도해 주세요" : "번역에 실패했습니다. 묘사를 고치고 다시 시도해 주세요";
             }
         }
         finally

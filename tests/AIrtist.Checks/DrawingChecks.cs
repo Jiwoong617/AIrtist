@@ -51,7 +51,35 @@ internal static class DrawingChecks
         await Failures();
         await Cancellation();
         await TimeoutAndIdle();
+        await OneClick();
         Console.WriteLine("Drawing: direct names, review/revision, repeat, stale/duplicate commands, failure, cancellation, timeout and disposal passed");
+    }
+
+    private static async Task OneClick()
+    {
+        var ai = new FakeAi();
+        using var drawing = new DrawingController(ai, TimeSpan.FromMilliseconds(200));
+        Task Draw(string text = "빨간 사과") => drawing.DrawAsync(drawing.Snapshot.Version, text, new(Seed: 42));
+        await Reject(() => Draw(""));
+        await Draw();
+        Require(ai.Translated == 1 && ai.Generated == 1 && drawing.Snapshot.Result?.Translation == "a red apple", "One click skipped translation or generation");
+        await Draw("초록 과일");
+        var result = drawing.Snapshot.Result;
+        Require(result?.Description == "초록 과일" && ai.Translated == 2, "One click reused stale source");
+        ai.FailTranslation = true; await Draw();
+        Require(ai.Generated == 2 && !drawing.Snapshot.Busy, "Translation failure reached generation");
+        ai.FailTranslation = false;
+        var gate = new Gate(); ai.TranslationGate = gate;
+        Task work = Draw(); await gate.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        try { await Reject(() => Draw()); drawing.Cancel(drawing.Snapshot.Version); }
+        finally { gate.Release.TrySetResult(); }
+        await work;
+        Require(ai.Generated == 2 && ReferenceEquals(result, drawing.Snapshot.Result), "Cancelled translation auto-generated");
+        ai.TranslationGate = null; ai.ReturnAfterTimeout = true;
+        await Draw();
+        Require(ReferenceEquals(result, drawing.Snapshot.Result) && drawing.Snapshot.Message.Contains("제한 시간"), "Late one-click output accepted");
+        ai.ReturnAfterTimeout = false; await Draw();
+        Require(drawing.Snapshot.Phase == DrawingPhase.Completed && !ReferenceEquals(result, drawing.Snapshot.Result), "One-click recovery failed");
     }
 
     private static async Task Failures()
