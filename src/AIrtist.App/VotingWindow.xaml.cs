@@ -95,7 +95,7 @@ public partial class VotingWindow : Window
                 : $"{tally.Votes}표" + (leading ? state.Result!.LeadingArtworkIds.Count > 1 ? " · 공동 최다 득표" : " · 최다 득표" : "");
             return new Card(a.Id, a.Preview, state.Players.Single(p => p.Id == a.OwnerId).Name + (own ? " · 내 그림" : ""), note,
                 tally is not null ? "투표 종료" : own ? "내 그림" : chosen ? "투표 완료" : "이 그림에 투표", state.CanVote && !own,
-                own ? new SolidColorBrush(Color.FromRgb(167, 227, 194)) : Brushes.Transparent);
+                own ? (Brush)FindResource("Accent") : (Brush)FindResource("CardBorder"));
         }).ToArray();
         Gallery.ItemsSource = cards;
     }

@@ -6,12 +6,15 @@ using AIrtist.Eos;
 namespace AIrtist.App;
 
 internal enum OnlinePhase { Offline, Connecting, Connected, Leaving, Failed, Closed }
-internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound, Draw }
+internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound, Draw, JoinCode }
 internal sealed record OnlineCommand(OnlineAction Action, long Generation, string Text = "", string Extra = "",
     int Number = 0, long Revision = 0, Guid RoundId = default, bool Ready = false, MultiplayerMatchSettings? Settings = null,
     GenerationParameters? Parameters = null);
 internal sealed record OnlineSnapshot(long Generation, OnlinePhase Phase, bool HasSession, string? LocalId, EosLobbySnapshot? Room,
-    LobbyBootstrapSnapshot? Connection, LobbySessionSnapshot? Lobby, MatchRuntimeSnapshot? Match, string Message, string? Error);
+    LobbyBootstrapSnapshot? Connection, LobbySessionSnapshot? Lobby, MatchRuntimeSnapshot? Match, string Message, string? Error)
+{
+    public long ProcessedCommands { get; init; }
+}
 
 // EOS, transport, Core Tick, commands and disposal all run on one OS thread.
 // UI reads published snapshots and queues bounded, session/round/revision-tagged commands.
@@ -32,6 +35,7 @@ internal sealed class OnlineSessionWorker
     private TaskCompletionSource? disconnect;
     private bool disconnectRequested, stopping, leaving, failed;
     private long generation, leaveStarted;
+    private long processedCommands;
     private string message = "접속 후 방을 만들거나 검색해 주세요.", error = "";
     private OnlineSnapshot snapshot = new(0, OnlinePhase.Offline, false, null, null, null, null, null, "접속 후 방을 만들거나 검색해 주세요.", null);
     public OnlineSnapshot Snapshot => Volatile.Read(ref snapshot);
@@ -39,7 +43,7 @@ internal sealed class OnlineSessionWorker
     public OnlineSessionWorker(MultiplayerCompatibility compatibility, Word[] words, IDrawingAi ai, IOnlineConnectionFactory? factory = null)
     {
         this.compatibility = compatibility; this.words = words; this.ai = ai;
-        this.factory = factory ?? new EosOnlineConnectionFactory();
+        this.factory = factory ?? new AutomaticRoomFactory();
         thread = new Thread(Run) { Name = "AIrtist online", IsBackground = true };
         thread.Start();
     }
@@ -93,8 +97,9 @@ internal sealed class OnlineSessionWorker
                     if (leaving || command.Generation != generation) continue;
                     try { Execute(command); error = ""; }
                     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-                    { error = command.Action >= OnlineAction.Ready ? ex.Message : "현재 상태에서는 요청을 처리할 수 없습니다. 상태를 확인하고 다시 시도해 주세요."; }
-                    catch (Exception) { Fail("접속 처리에 실패했습니다. 설정 파일과 앱 구성을 확인해 주세요."); }
+                    { error = command.Action is >= OnlineAction.Ready and <= OnlineAction.Draw ? ex.Message : "현재 상태에서는 요청을 처리할 수 없습니다. 상태를 확인하고 다시 시도해 주세요."; }
+                    catch (Exception) { Fail("접속 처리에 실패했습니다. 최신 게임 패키지인지 확인하고 다시 연결해 주세요."); }
+                    finally { processedCommands++; }
                 }
                 try { Tick(); }
                 catch (Exception) { Fail("온라인 처리가 중단되었습니다. 나간 뒤 다시 접속해 주세요."); if (leaving) EndDisconnect(false); }
@@ -140,6 +145,7 @@ internal sealed class OnlineSessionWorker
                 if (!settings.IsValid()) throw new ArgumentException("방 설정을 확인해 주세요.");
                 connection.Create(command.Number); createdSettings = settings; break;
             case OnlineAction.Join: connection.Join(command.Text); break;
+            case OnlineAction.JoinCode: connection.JoinByCode(command.Text); break;
             case OnlineAction.Prepare:
                 if (connection.Bootstrap is not null) throw new InvalidOperationException();
                 connection.Prepare(); break;
@@ -213,6 +219,6 @@ internal sealed class OnlineSessionWorker
             auth?.State is EosConnectionState.Connected or EosConnectionState.Renewing ? OnlinePhase.Connected : OnlinePhase.Connecting;
         string status = leaving || failed || connection is null ? message : core?.Snapshot().Message ?? connection.Bootstrap?.Message ?? connection.Lobby?.Message ?? auth!.Message;
         Volatile.Write(ref snapshot, new(generation, phase, connection is not null, auth?.PlayerId, connection?.Lobby, connection?.Bootstrap,
-            core?.Snapshot(), core?.Match?.Snapshot(), status, string.IsNullOrEmpty(error) ? null : error));
+            core?.Snapshot(), core?.Match?.Snapshot(), status, string.IsNullOrEmpty(error) ? null : error) { ProcessedCommands = processedCommands });
     }
 }

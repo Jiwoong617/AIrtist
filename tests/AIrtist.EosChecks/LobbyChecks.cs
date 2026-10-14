@@ -30,8 +30,9 @@ internal static class LobbyChecks
         public int MaxMembers, ClearCalls, DisposeCalls, ReadCalls;
         public bool StartResult = true;
         public bool Start(Action<EosLobbySignal> notify) { Notify = notify; return StartResult; }
-        public void Search(string bucket, Action<EosLobbySearchCompletion> done) { Bucket = bucket; SearchReply = done; }
-        public void Create(string bucket, int max, Action<EosLobbyCompletion> done) { Bucket = bucket; MaxMembers = max; EntryReply = done; }
+        public string? SearchId;
+        public void Search(string bucket, Action<EosLobbySearchCompletion> done, string? lobbyId = null) { Bucket = bucket; SearchId = lobbyId; SearchReply = done; }
+        public void Create(string bucket, int max, Action<EosLobbyCompletion> done, string? lobbyId = null) { Bucket = bucket; MaxMembers = max; EntryReply = done; }
         public void Join(string id, Action<EosLobbyCompletion> done) { JoinId = id; EntryReply = done; }
         public void Leave(string id, Action<EosLobbyCompletion> done) { Leaves.Add(id); LeaveReply = done; }
         public EosLobbyMembership? ReadMembership(string id) { ReadCalls++; return Membership; }
@@ -61,8 +62,35 @@ internal static class LobbyChecks
 
     public static void Run()
     {
-        SearchJoinLeave(); MembershipChanges(); DeadlineAndCancel(); InvalidServiceData(); ConnectionAttributes(); Lifecycle();
+        SearchJoinLeave(); CodeJoin(); MembershipChanges(); DeadlineAndCancel(); InvalidServiceData(); ConnectionAttributes(); Lifecycle();
         Console.WriteLine("PASS: EOS 로비 SDK 경계 대역 — 검색/생성/참가/나가기, 명단 검증·변경 중단, 시간 초과·늦은 완료 정리·스레드/수명. 실제 온라인 로비는 검사하지 않았습니다.");
+    }
+    private static void CodeJoin()
+    {
+        Check(RoomCode.Normalize(" abcde-23456 ") == "ABCDE23456", "Code normalization failed");
+        foreach (var invalid in new[] { "", "123", "OOOOO11111", "한글ABCDE23456", "../../ABCD" }) Reject(() => RoomCode.Normalize(invalid));
+        for (int i = 0; i < 30; i++) { string id = RoomCode.CreateLobbyId(); Check(RoomCode.ToLobbyId(RoomCode.FromLobbyId(id)!) == id, "Code round trip failed"); }
+        string target = RoomCode.ToLobbyId("ABCDE23456");
+        using (var f = new Fixture(A))
+        {
+            f.Client.JoinByCode("abcde-23456"); Check(f.Api.SearchId == target, "Code must use exact lookup");
+            f.Api.SearchReply!(new(true, [])); Check(f.Client.Snapshot.State == EosLobbyState.Idle && f.Api.JoinId == "", "Missing code joined a room");
+            f.Client.JoinByCode("ABCDE23456"); f.Api.SearchReply!(new(true, [f.Api.Room(target, slots: 0)]));
+            Check(f.Client.Snapshot.State == EosLobbyState.Idle, "Full room not rejected");
+            f.Client.JoinByCode("ABCDE23456"); f.Api.SearchReply!(new(true, [f.Api.Room(target) with { BucketId = "wrong-version" }]));
+            Check(f.Client.Snapshot.State == EosLobbyState.Idle && f.Api.JoinId == "", "Incompatible code accepted");
+            f.Client.JoinByCode("ABCDE23456"); f.Api.SearchReply!(new(true, [f.Api.Room("wrong-id")]));
+            Check(f.Client.Snapshot.State == EosLobbyState.Idle, "Wrong returned ID accepted");
+            f.Client.JoinByCode("ABCDE23456"); var room = f.Api.Room(target); f.Api.SearchReply!(new(true, [room]));
+            Check(f.Api.JoinId == target && f.Client.Snapshot.State == EosLobbyState.Joining, "Exact room not joined");
+            f.Api.Membership = new(room, [H, A]); f.Api.EntryReply!(new(true, target));
+            Check(f.Client.Snapshot.State == EosLobbyState.Joined, "Code membership validation failed");
+        }
+        using (var f = new Fixture(A))
+        {
+            f.Client.JoinByCode("ABCDE23456"); f.Clock.Advance(31); f.Client.Pump();
+            f.Api.SearchReply!(new(true, [f.Api.Room(target)])); Check(f.Api.JoinId == "", "Late code lookup joined after timeout");
+        }
     }
     private static void SearchJoinLeave()
     {

@@ -38,6 +38,21 @@ public partial class App : Application
         int overrideIndex = Array.IndexOf(e.Args, "--models");
         if (overrideIndex >= 0 && overrideIndex + 1 < e.Args.Length) root = e.Args[overrideIndex + 1];
         var assets = new RuntimeAssets(root);
+        if (e.Args.FirstOrDefault() == "--local-process-smoke")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            string output = Path.GetFullPath(e.Args[1]); int index = int.Parse(e.Args[2]);
+            string resultPath = Path.Combine(output, "player-" + index, "status.json");
+            Directory.CreateDirectory(Path.GetDirectoryName(resultPath)!);
+            try
+            {
+                var report = await LocalProcessSmoke.Run(assets, output, index, e.Args.Contains("--real-ai"), e.Args.Contains("--online-host"));
+                File.WriteAllText(resultPath, JsonSerializer.Serialize(report, RuntimeAssets.Json)); Shutdown(0);
+            }
+            catch (Exception ex)
+            { File.WriteAllText(resultPath, JsonSerializer.Serialize(new { status = "failed", error = ex.ToString() }, RuntimeAssets.Json)); Shutdown(1); }
+            return;
+        }
         if (e.Args.FirstOrDefault() == "--menu-smoke")
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -59,12 +74,12 @@ public partial class App : Application
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             int configIndex = Array.IndexOf(e.Args, "--eos-config");
-            if (e.Args.Length < 2 || configIndex < 0 || configIndex + 1 >= e.Args.Length) { Shutdown(2); return; }
+            if (e.Args.Length < 2 || configIndex >= 0 && configIndex + 1 >= e.Args.Length) { Shutdown(2); return; }
             string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);
             try
             {
                 await Task.Run(() => assets.Verify(CancellationToken.None));
-                var report = await OnlineLiveSmoke.Run(assets, output, Path.GetFullPath(e.Args[configIndex + 1]));
+                var report = await OnlineLiveSmoke.Run(assets, output, configIndex >= 0 ? Path.GetFullPath(e.Args[configIndex + 1]) : "");
                 File.WriteAllText(Path.Combine(output, "online-live-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
                 File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}"); Shutdown(0);
             }

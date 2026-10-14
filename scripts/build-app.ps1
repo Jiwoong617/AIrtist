@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
 Push-Location -LiteralPath $taskRoot
 try {
+    if (Test-Path -LiteralPath (Join-Path $taskRoot 'config/eos.local.json')) { & (Join-Path $PSScriptRoot 'prepare-online-config.ps1') }
     $env:DOTNET_CLI_HOME = Join-Path $taskRoot '.cache/dotnet'
     $env:NUGET_PACKAGES = Join-Path $taskRoot '.cache/nuget'
     $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'

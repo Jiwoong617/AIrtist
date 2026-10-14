@@ -22,8 +22,8 @@ internal sealed record EosLobbySearchCompletion(bool Success, IReadOnlyList<EosL
 internal interface IEosLobbyApi : IDisposable
 {
     bool Start(Action<EosLobbySignal> notify);
-    void Search(string bucketId, Action<EosLobbySearchCompletion> complete);
-    void Create(string bucketId, int maxMembers, Action<EosLobbyCompletion> complete);
+    void Search(string bucketId, Action<EosLobbySearchCompletion> complete, string? lobbyId = null);
+    void Create(string bucketId, int maxMembers, Action<EosLobbyCompletion> complete, string? lobbyId = null);
     void Join(string lobbyId, Action<EosLobbyCompletion> complete);
     void Leave(string lobbyId, Action<EosLobbyCompletion> complete);
     EosLobbyMembership? ReadMembership(string lobbyId);

@@ -17,7 +17,7 @@ internal static class OnlineSmoke
         var watch = Stopwatch.StartNew();
         while (!condition()) { if (watch.Elapsed > TimeSpan.FromSeconds(20)) throw new InvalidOperationException("Online smoke timeout"); await Task.Delay(30); }
     }
-    private sealed class Ai : IDrawingAi
+    internal sealed class Ai : IDrawingAi
     {
         public int Generated;
         public readonly System.Collections.Concurrent.ConcurrentBag<GenerationParameters> Parameters = new();
@@ -41,7 +41,7 @@ internal static class OnlineSmoke
         var words = WordCatalog.Load(path); var compatibility = MultiplayerCompatibility.FromVerifiedAssets(assets, path);
         var ai = new Ai();
         // Invalid local config is checked before native initialization. Never contact a service.
-        var missing = new OnlineSessionWorker(compatibility, words, ai);
+        var missing = new OnlineSessionWorker(compatibility, words, ai, new EosOnlineConnectionFactory());
         var room = new OnlineRoomWindow(assets, ai, missing, Path.Combine(output, "missing.json"));
         try
         {
@@ -70,6 +70,7 @@ internal static class OnlineSmoke
         using var world = new World(compatibility.ConnectionHash());
         var workers = world.Factories.Select(f => new OnlineSessionWorker(compatibility, words, ai, f)).ToArray();
         var windows = new List<RoundPreviewWindow>();
+        var entryWindows = new List<OnlineRoomWindow>();
         OnlineRoomWindow? creation = null;
         try
         {
@@ -83,11 +84,25 @@ internal static class OnlineSmoke
             world.Factories[0].Block = false; world.Factories[0].Release.Set();
             await Until(() => world.Factories[0].Searches == 32);
             Require(!workers[0].Post(new(OnlineAction.Translate, workers[0].Snapshot.Generation, new('x', 4097))), "Oversize command accepted");
-            // Search/create/join pass through the worker boundary.
-            creation = new OnlineRoomWindow(assets, ai, workers[0], "mock");
+            // Exercise the actual offline UI path: validation, automatic login, code lookup and retry.
+            await Task.WhenAll(workers.Select(w => w.DisconnectAsync()));
+            string? copied = null;
+            creation = new OnlineRoomWindow(assets, ai, workers[0], "mock", value => copied = value);
+            creation.SmokeChoices(output);
             creation.SmokeCreateWithParameters(fixedValues, output);
-            for (int i = 1; i < 3; i++) workers[i].Post(new(OnlineAction.Join, workers[i].Snapshot.Generation, "mock-room"));
+            for (int i = 1; i < 3; i++)
+            {
+                var entry = new OnlineRoomWindow(assets, ai, workers[i], "mock"); entryWindows.Add(entry);
+                entry.SmokeJoinCode("bad"); entry.SmokeVerifyInvalidCode();
+                Require(!workers[i].Snapshot.HasSession, "Invalid code caused authentication");
+                entry.SmokeJoinCode("abcde-99999");
+                await Until(() => workers[i].Snapshot.Room?.Message.Contains("참가 가능한 방이 없습니다") == true);
+                entry.SmokeVerifyJoinRetry();
+                entry.SmokeJoinCode("abcde-23456");
+            }
             await Until(() => workers.All(w => w.Snapshot.Room?.State == EosLobbyState.Joined));
+            creation.SmokeCopyCode(); Require(copied == "ABCDE-23456", "Copy did not use the actual room code");
+            creation.SmokeRender(Path.Combine(output, "room-code-members.png"));
             for (int i = 0; i < 2; i++) workers[i].Post(new(OnlineAction.Prepare, workers[i].Snapshot.Generation));
             await Until(() => workers.Take(2).All(w => w.Snapshot.Connection is not null));
             await Task.Delay(200); Require(workers.All(w => w.Snapshot.Lobby is null), "Partial connection opened Core lobby");
@@ -167,13 +182,15 @@ internal static class OnlineSmoke
             foreach (var window in windows) window.Close();
             await Task.WhenAll(workers.Select(w => w.StopAsync()));
             creation?.Close();
+            foreach (var entry in entryWindows) entry.Close();
         }
         Require(world.Factories.All(f => f.ThreadId != Environment.CurrentManagedThreadId && f.ThreadId != 0 && f.Disposed && f.Created == f.Closed), "Thread/session cleanup failed");
         Require(world.Factories.Select(f => f.ThreadId).Distinct().Count() == 3, "Workers did not use independent threads");
         Require(workers.All(w => w.Snapshot.Phase == OnlinePhase.Closed && !w.Post(new(OnlineAction.Search, w.Snapshot.Generation))), "Closed worker accepted work");
         return new { status = "passed", players = 3, rounds = 2, fixedRoomParameters = fixedValues,
             verifiedParameters = ai.Parameters.ToArray(), fakePngGenerations = ai.Generated, queueLimit = 32,
-            separateNetworkThreads = 3, missingSettings = "safe failure", staleCommand = "rejected", closedWorkerWindows = "passed", realEos = false, realAi = false };
+            separateNetworkThreads = 3, automaticRoomEntry = "passed", invalidAndMissingCodeRetry = "passed", roomCodeCopy = "passed",
+            missingSettings = "safe failure", staleCommand = "rejected", closedWorkerWindows = "passed", realEos = false, realAi = false };
     }
 
     private sealed class World : IDisposable
@@ -211,10 +228,11 @@ internal static class OnlineSmoke
     {
         private EosLobbyState state = EosLobbyState.Idle;
         private bool preparing, handed, disposed;
+        private string message = "모의 방";
         private string Id => world.Members[index].PlayerId;
-        private EosLobbyListing Listing => new("mock-room", world.Members[0].PlayerId, "mock", 3, 0);
+        private EosLobbyListing Listing => new("airtist-ABCDE23456", world.Members[0].PlayerId, "mock", 3, 0);
         public EosConnectionSnapshot Authentication { get { factory.Check(); return new(EosConnectionState.Connected, Id, "모의 인증"); } }
-        public EosLobbySnapshot Lobby { get { factory.Check(); return new(state, [Listing], state is EosLobbyState.Joined or EosLobbyState.Leaving ? new(Listing, world.Members.Select(m => m.PlayerId).ToArray()) : null, 1, "모의 방"); } }
+        public EosLobbySnapshot Lobby { get { factory.Check(); return new(state, [Listing], state is EosLobbyState.Joined or EosLobbyState.Leaving ? new(Listing, world.Members.Select(m => m.PlayerId).ToArray()) : null, 1, message); } }
         public LobbyBootstrapSnapshot? Bootstrap
         {
             get
@@ -230,8 +248,14 @@ internal static class OnlineSmoke
             if (state == EosLobbyState.Leaving && !factory.IgnoreLeave) state = EosLobbyState.Idle;
         }
         public void Search() { factory.Check(); Interlocked.Increment(ref factory.Searches); }
-        public void Create(int count) { factory.Check(); Interlocked.Increment(ref factory.Creates); state = EosLobbyState.Joined; }
+        public void Create(int count, string? lobbyId = null) { factory.Check(); Interlocked.Increment(ref factory.Creates); state = EosLobbyState.Joined; }
         public void Join(string id) { factory.Check(); Require(id == "mock-room", "Join target lost"); state = EosLobbyState.Joined; }
+        public void JoinByCode(string code)
+        {
+            factory.Check(); code = RoomCode.Normalize(code);
+            if (code == "ABCDE99999") { state = EosLobbyState.Idle; message = "참가 가능한 방이 없습니다"; return; }
+            Require(code == "ABCDE23456", "Room code target lost"); state = EosLobbyState.Joined; message = "모의 방";
+        }
         public void Prepare() { factory.Check(); preparing = true; Interlocked.Exchange(ref world.Prepared[index], 1); }
         public PreparedLobbyConnection TakeConnection()
         { factory.Check(); Require(Bootstrap?.State == LobbyBootstrapState.Ready, "Early/repeated handoff"); handed = true; return new(world.Scope, world.Members[0].PlayerId, Id, world.Hash, world.Members, new ThreadTransport(factory, world.Transports[index])); }

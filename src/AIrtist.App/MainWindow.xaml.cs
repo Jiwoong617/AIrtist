@@ -188,7 +188,7 @@ public partial class MainWindow : Window
             string words = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
             onlineWorker ??= new(MultiplayerCompatibility.FromVerifiedAssets(assets, words), WordCatalog.Load(words), sharedAi!);
             var args = Environment.GetCommandLineArgs(); int index = Array.IndexOf(args, "--eos-config");
-            string path = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]) : Path.GetFullPath("config/eos.local.json");
+            string path = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]) : "";
             new OnlineRoomWindow(assets, sharedAi!, onlineWorker, path) { Owner = this }.ShowDialog();
         }
         catch (Exception) { StatusLabel.Text = "온라인 방 화면을 열지 못했습니다. 앱·단어 파일과 설정 경로를 확인해 주세요."; }

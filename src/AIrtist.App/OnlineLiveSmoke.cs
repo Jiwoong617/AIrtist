@@ -25,14 +25,15 @@ internal static class OnlineLiveSmoke
     internal static async Task<object> Run(RuntimeAssets assets, string output, string configPath)
     {
         // Verify credentials before loading native SDK. Never copy them to the report directory.
-        EosSettings.Load(configPath);
+        if (string.IsNullOrEmpty(configPath)) EmbeddedOnlineSettings.Load(); else EosSettings.Load(configPath);
         string wordsPath = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
         var compatibility = MultiplayerCompatibility.FromVerifiedAssets(assets, wordsPath);
         // Separate this disposable room from game discovery without changing product matching rules.
         compatibility = compatibility with { AssetsSha256 = Convert.ToHexString(RandomNumberGenerator.GetBytes(32)) };
         var ai = new NoAi();
-        var worker = new OnlineSessionWorker(compatibility, WordCatalog.Load(wordsPath), ai);
-        var window = new OnlineRoomWindow(assets, ai, worker, configPath);
+        var worker = new OnlineSessionWorker(compatibility, WordCatalog.Load(wordsPath), ai, new EosOnlineConnectionFactory());
+        string? copiedCode = null;
+        var window = new OnlineRoomWindow(assets, ai, worker, configPath, value => copiedCode = value);
         var windowClosed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         window.Closed += (_, _) => windowClosed.TrySetResult();
         var total = Stopwatch.StartNew();
@@ -61,27 +62,23 @@ internal static class OnlineLiveSmoke
         pulse.Start();
         try
         {
-            window.SmokeConnect();
-            await Until(s => s.Phase == OnlinePhase.Connected && s.Room?.State == EosLobbyState.Idle, "첫 인증");
+            window.SmokeLiveCreate();
+            await Until(s => s.Phase == OnlinePhase.Connected && s.Room?.State == EosLobbyState.Joined, "자동 인증·방 생성");
             string? localId = worker.Snapshot.LocalId;
             long firstGeneration = worker.Snapshot.Generation;
             Require(localId is not null && dispatcherTicks > 0, "인증 및 UI Dispatcher 진행");
             Record("authenticated");
             window.SmokeRender(Path.Combine(output, "online-authenticated.png"));
 
-            window.SmokeLiveSearch();
-            await Until(s => s.Room?.State == EosLobbyState.Idle && s.Room.Message == "방 검색 완료", "첫 검색");
-            Require(worker.Snapshot.Room!.SearchResults.Count == 0, "독립 범위 검색");
-            Record("empty-search");
-
-            window.SmokeLiveCreate();
-            await Until(s => s.Room?.State == EosLobbyState.Joined, "방 생성");
             var membership = worker.Snapshot.Room!.Membership;
             Require(membership is not null && membership.Lobby.OwnerId == localId && membership.Lobby.MaxMembers == 2 &&
                 membership.Lobby.AvailableSlots == 1 && membership.Members.Count == 1 && membership.Members[0] == localId,
                 "서비스 방장·정원·명단");
             string createdId = membership!.Lobby.LobbyId;
+            Require(RoomCode.FromLobbyId(createdId) is not null, "실제 서비스 방 코드");
             window.SmokeLiveVerifyJoined();
+            window.SmokeCopyCode();
+            Require(copiedCode == RoomCode.Display(RoomCode.FromLobbyId(createdId)!), "실제 방 코드 복사");
             Record("created-and-membership-verified");
             window.SmokeRender(Path.Combine(output, "online-room-created.png"));
 
@@ -99,6 +96,10 @@ internal static class OnlineLiveSmoke
             await Until(s => s.Room?.State == EosLobbyState.Idle && s.Room.Message == "방 검색 완료", "재접속 후 검색");
             Require(worker.Snapshot.Room!.SearchResults.All(r => r.LobbyId != createdId), "나간 방 검색 제외");
             Record("left-room-absent");
+            window.SmokeJoinCode(RoomCode.FromLobbyId(createdId)!);
+            await Until(s => s.Room?.State == EosLobbyState.Idle && s.Room.Message.Contains("참가 가능한 방이 없습니다"), "닫힌 방 코드 거절");
+            window.SmokeVerifyJoinRetry();
+            Record("closed-code-exact-lookup-rejected");
             window.SmokeLiveLeave();
             await Until(s => s.Phase == OnlinePhase.Offline && !s.HasSession, "최종 접속 종료");
             Require(worker.Snapshot.Message == "접속을 종료했습니다.", "최종 종료 확인");

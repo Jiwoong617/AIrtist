@@ -19,6 +19,17 @@ public sealed class EosSettings
         {
             if (new FileInfo(path).Length > 16 * 1024) throw new InvalidDataException("EOS 설정 파일이 너무 큽니다.");
             using var input = File.OpenRead(path);
+            return Read(input);
+        }
+        catch (IOException) { throw new InvalidDataException("EOS 설정 파일을 읽을 수 없습니다. 경로·크기·값을 확인하세요."); }
+        catch (UnauthorizedAccessException) { throw new InvalidDataException("EOS 설정 파일 읽기 권한이 없습니다."); }
+    }
+
+    public static EosSettings Read(Stream input)
+    {
+        try
+        {
+            if (!input.CanSeek || input.Length > 16 * 1024) throw new InvalidDataException("EOS 설정 크기를 확인하세요.");
             var value = JsonSerializer.Deserialize<EosSettings>(input, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true,

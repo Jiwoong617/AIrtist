@@ -69,7 +69,7 @@ public partial class MenuWindow : Window
             string words = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
             onlineWorker ??= new(MultiplayerCompatibility.FromVerifiedAssets(assets, words), WordCatalog.Load(words), ai);
             var args = Environment.GetCommandLineArgs(); int index = Array.IndexOf(args, "--eos-config");
-            string path = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]) : Path.GetFullPath("config/eos.local.json");
+            string path = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]) : "";
             ShowScreen(new OnlineRoomWindow(assets, ai, onlineWorker, path));
         }
         catch (Exception) { MenuStatus.Text = "멀티플레이 화면을 열지 못했습니다. 앱 파일과 설정 경로를 확인해 주세요."; }

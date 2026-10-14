@@ -18,9 +18,15 @@ public partial class MainWindow
 
 public partial class OnlineRoomWindow
 {
+    internal void SmokeLocalCreate(int rounds)
+    {
+        ChooseCreateClicked(this, new()); Capacity.SelectedItem = 3; RoomRounds.SelectedItem = rounds;
+        RoomWriting.SelectedItem = 300; RoomGeneration.SelectedItem = 300; CreateClicked(this, new());
+    }
+    internal void SmokeLocalPrepare() { Refresh(); OnlineSmoke.Require(Prepare.IsEnabled, "Local prepare unavailable"); PrepareClicked(this, new()); }
     internal void SmokeCreateWithParameters(GenerationParameters? fixedValues, string output)
     {
-        Refresh(); OnlineSmoke.Require(Create.IsEnabled, "Create UI unavailable");
+        ChooseCreateClicked(this, new()); Refresh(); OnlineSmoke.Require(Create.IsEnabled, "Create UI unavailable");
         LockRoomParameters.IsChecked = fixedValues is not null;
         if (fixedValues is not null) RoomParameters.Set(fixedValues);
         OnlineSmoke.Require(RoomParameters.Visibility == (fixedValues is null ? Visibility.Collapsed : Visibility.Visible), "Creation parameter visibility wrong");
@@ -28,18 +34,32 @@ public partial class OnlineRoomWindow
         Capacity.SelectedItem = 3; CreateClicked(this, new());
     }
     internal void SmokeConnect() { Refresh(); ConnectClicked(this, new()); }
-    internal void SmokeLiveSearch() { Refresh(); OnlineLiveSmoke.Require(Search.IsEnabled, "방 검색 버튼 상태"); SearchClicked(this, new()); }
+    internal void SmokeLiveSearch() { Refresh(); OnlineLiveSmoke.Require(view.Room?.State == AIrtist.Eos.EosLobbyState.Idle, "방 검색 가능 상태"); SearchClicked(this, new()); }
     internal void SmokeLiveCreate()
     {
-        Refresh(); OnlineLiveSmoke.Require(Create.IsEnabled, "방 생성 버튼 상태");
+        ChooseCreateClicked(this, new()); Refresh(); OnlineLiveSmoke.Require(Create.IsEnabled, "방 생성 버튼 상태");
         Capacity.SelectedItem = 2; CreateClicked(this, new());
     }
     internal void SmokeLiveLeave() { Refresh(); OnlineLiveSmoke.Require(Leave.IsEnabled, "접속 종료 버튼 상태"); LeaveClicked(this, new()); }
     internal void SmokeLiveVerifyJoined()
     {
         Refresh();
-        OnlineLiveSmoke.Require(!Create.IsEnabled && !Search.IsEnabled && !Prepare.IsEnabled && !OpenGame.IsEnabled && Leave.IsEnabled,
+        OnlineLiveSmoke.Require(!Create.IsEnabled && !Join.IsEnabled && !Prepare.IsEnabled && !OpenGame.IsEnabled && Leave.IsEnabled && CodeBadge.Visibility == Visibility.Visible,
             "단일 참가자 방의 버튼 권한");
+    }
+    internal void SmokeJoinCode(string code)
+    { ChooseJoinClicked(this, new()); CodeInput.Text = code; JoinClicked(this, new()); }
+    internal void SmokeVerifyInvalidCode()
+    { Refresh(); OnlineSmoke.Require(!queuedAction && !operationPending && Join.IsEnabled && localError.Contains("방 코드"), "Invalid code started connection or blocked retry"); }
+    internal void SmokeVerifyJoinRetry()
+    { Refresh(); OnlineSmoke.Require(Join.IsEnabled && !operationPending && !queuedAction, "Missing room blocked code retry"); }
+    internal void SmokeCopyCode() { Refresh(); OnlineSmoke.Require(CodeBadge.Visibility == Visibility.Visible, "Room code missing"); CopyCodeClicked(this, new()); }
+    internal void SmokeChoices(string output)
+    {
+        Refresh(); OnlineSmoke.Require(ChoicePanel.Visibility == Visibility.Visible && ChooseCreate.IsEnabled && ChooseJoin.IsEnabled, "Choice screen missing");
+        SmokeRender(Path.Combine(output, "multiplayer-choice.png"));
+        ChooseJoinClicked(this, new()); SmokeRender(Path.Combine(output, "join-code.png"));
+        ChooseCreateClicked(this, new()); SmokeRender(Path.Combine(output, "create-room.png"));
     }
     internal void SmokeRender(string path)
     {

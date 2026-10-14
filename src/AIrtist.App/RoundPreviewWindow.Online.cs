@@ -1,5 +1,6 @@
 using System.Windows;
 using AIrtist.Core;
+using AIrtist.Eos;
 
 namespace AIrtist.App;
 
@@ -8,10 +9,14 @@ public partial class RoundPreviewWindow
     private OnlineSessionWorker? online;
     private OnlineSnapshot? onlineView;
     private long onlineGeneration, shownLobbyRevision = -1;
+    private string? onlineRoomCode;
 
     internal RoundPreviewWindow(RuntimeAssets assets, IDrawingAi ai, OnlineSessionWorker worker) : this(assets, ai)
     {
         online = worker; onlineView = worker.Snapshot; onlineGeneration = onlineView.Generation;
+        onlineRoomCode = RoomCode.FromLobbyId(onlineView.Room?.Membership?.Lobby.LobbyId);
+        if (onlineRoomCode is not null)
+        { OnlineRoomCode.Content = "방 코드   " + RoomCode.Display(onlineRoomCode) + "   ⧉"; OnlineRoomCode.Visibility = Visibility.Visible; }
         Title = "AIrtist · 온라인 경기"; WindowHeading.Text = "온라인 경기";
         WindowHint.Text = "모두 준비하면 방장이 경기를 시작합니다. 그림은 각자의 PC에서 생성합니다.";
         LobbyGuide.Text = "모두 준비하면 방장이 경기를 시작합니다. 내 이름 옆에 ‘나’가 표시됩니다.";
@@ -22,6 +27,13 @@ public partial class RoundPreviewWindow
         var state = onlineView.Lobby?.Lobby ?? throw new InvalidOperationException("대기방을 기다려 주세요.");
         players = state.Members.Select(m => m.Member.Player).ToArray();
         Viewer.ItemsSource = players.Where(p => p.Id == onlineView.LocalId).ToArray(); Viewer.SelectedIndex = 0;
+        Refresh();
+    }
+    private void CopyOnlineCodeClicked(object sender, RoutedEventArgs e)
+    {
+        if (onlineRoomCode is null) return;
+        try { Clipboard.SetText(RoomCode.Display(onlineRoomCode)); commandError = "방 코드 복사 완료"; }
+        catch (System.Runtime.InteropServices.ExternalException) { commandError = "방 코드 복사에 실패했습니다."; }
         Refresh();
     }
 

@@ -11,8 +11,7 @@ $packagePath = (Resolve-Path -LiteralPath $PackageDirectory).Path
 $executablePath = Join-Path $packagePath 'AIrtist.exe'
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) { throw 'Package executable missing' }
 $outputPath = [IO.Path]::GetFullPath($OutputDirectory)
-if ($Mode -eq 'online-live-smoke') {
-    if (-not $EosConfigPath) { throw 'Live EOS diagnostic requires -EosConfigPath; it creates a disposable service room' }
+if ($Mode -eq 'online-live-smoke' -and $EosConfigPath) {
     $liveConfigPath = (Resolve-Path -LiteralPath $EosConfigPath).Path
 }
 if (Test-Path -LiteralPath $outputPath) { throw 'Use a new diagnostic output directory' }
@@ -24,7 +23,7 @@ $modules = @{}
 $timer = [Diagnostics.Stopwatch]::StartNew()
 $arguments = @("--$Mode", ('"' + $outputPath + '"'))
 if ($ModelDirectory) { $arguments += @('--models', ('"' + (Resolve-Path -LiteralPath $ModelDirectory).Path + '"')) }
-if ($Mode -eq 'online-live-smoke') { $arguments += @('--eos-config', ('"' + $liveConfigPath + '"')) }
+if ($Mode -eq 'online-live-smoke' -and $EosConfigPath) { $arguments += @('--eos-config', ('"' + $liveConfigPath + '"')) }
 if ($Mode -eq 'voting-smoke') {
     if ($VotingImages.Count -ne 3) { throw 'Voting smoke needs three different PNG images' }
     foreach ($path in $VotingImages) { $arguments += '"' + (Resolve-Path -LiteralPath $path).Path + '"' }

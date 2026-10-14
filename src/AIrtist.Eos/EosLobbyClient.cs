@@ -62,12 +62,13 @@ public sealed class EosLobbyClient : IDisposable
         });
     }
 
-    public void Create(int maxMembers)
+    public void Create(int maxMembers, string? lobbyId = null)
     {
         Require(EosLobbyState.Idle);
         if (maxMembers is < 2 or > 16) throw new ArgumentOutOfRangeException(nameof(maxMembers));
+        if (lobbyId is not null && RoomCode.FromLobbyId(lobbyId) is null) throw new ArgumentException("방 코드를 확인하세요.");
         int token = Begin(EosLobbyState.Creating, "방 생성 중"); api.ClearSearch();
-        api.Create(bucket, maxMembers, result => CompleteMembership(token, result, null, true));
+        api.Create(bucket, maxMembers, result => CompleteMembership(token, result, lobbyId, true), lobbyId);
     }
 
     public void Join(string lobbyId)
@@ -77,6 +78,24 @@ public sealed class EosLobbyClient : IDisposable
             throw new ArgumentException("현재 검색 결과에서 방을 선택하세요.");
         int token = Begin(EosLobbyState.Joining, "방 참가 중");
         api.Join(lobbyId, result => CompleteMembership(token, result, lobbyId, false));
+    }
+
+    public void JoinByCode(string code)
+    {
+        Require(EosLobbyState.Idle);
+        string id = RoomCode.ToLobbyId(code);
+        int token = Begin(EosLobbyState.Searching, "방 코드를 확인하고 있어요"); api.ClearSearch();
+        api.Search(bucket, result =>
+        {
+            if (!Current(token)) { if (!disposed) api.ClearSearch(); return; }
+            if (!result.Success) { Fail("방 코드 조회 실패. 잠시 후 다시 접속해 주세요."); api.ClearSearch(); return; }
+            if (result.Results.Count != 1 || !Valid(result.Results[0]) || result.Results[0].LobbyId != id || result.Results[0].AvailableSlots == 0)
+            {
+                api.ClearSearch(); Snapshot = Snapshot with { State = EosLobbyState.Idle, Message = "참가 가능한 방이 없습니다. 코드·빈자리·게임 버전을 확인해 주세요." }; return;
+            }
+            int joinToken = Begin(EosLobbyState.Joining, "친구의 방에 들어가고 있어요");
+            api.Join(id, entry => CompleteMembership(joinToken, entry, id, false));
+        }, id);
     }
 
     private void CompleteMembership(int token, EosLobbyCompletion result, string? expectedId, bool created)

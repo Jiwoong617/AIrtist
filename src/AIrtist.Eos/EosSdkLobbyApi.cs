@@ -53,7 +53,7 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
         return updateId != 0 && memberId != 0 && statusId != 0;
     }
 
-    public void Search(string bucketId, Action<EosLobbySearchCompletion> complete)
+    public void Search(string bucketId, Action<EosLobbySearchCompletion> complete, string? lobbyId = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         ClearSearch();
@@ -65,11 +65,16 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
             Parameter = new AttributeData { Key = LobbyInterface.SEARCH_BUCKET_ID, Value = new AttributeDataValue { AsUtf8 = bucketId } },
             ComparisonOp = ComparisonOp.Equal
         };
-        if (search.SetParameter(ref parameter) != Result.Success) { ReleaseSearch(); complete(new(false, [])); return; }
+        var exact = new LobbySearchSetLobbyIdOptions { LobbyId = lobbyId };
+        var configured = lobbyId is null ? search.SetParameter(ref parameter) : search.SetLobbyId(ref exact);
+        if (configured != Result.Success) { ReleaseSearch(); complete(new(false, [])); return; }
         var find = new LobbySearchFindOptions { LocalUserId = local };
         search.Find(ref find, callbackOwner, (ref LobbySearchFindCallbackInfo info) =>
         {
             if (disposed) return;
+            // Exact-ID lookup may return NotFound instead of a successful empty result.
+            if (lobbyId is not null && info.ResultCode == Result.NotFound)
+            { ReleaseSearch(); complete(new(true, [])); return; }
             if (info.ResultCode != Result.Success || search == null) { ReleaseSearch(); complete(new(false, [])); return; }
             var rooms = new List<EosLobbyListing>();
             try
@@ -81,7 +86,7 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
                     var copy = new LobbySearchCopySearchResultByIndexOptions { LobbyIndex = i };
                     if (search.CopySearchResultByIndex(ref copy, out var details) != Result.Success || details == null) continue;
                     var room = ReadListing(details);
-                    if (room == null || room.BucketId != bucketId || !results.TryAdd(room.LobbyId, details)) { details.Release(); continue; }
+                    if (room == null || room.BucketId != bucketId || (lobbyId is not null && room.LobbyId != lobbyId) || !results.TryAdd(room.LobbyId, details)) { details.Release(); continue; }
                     rooms.Add(room);
                 }
             }
@@ -90,12 +95,13 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
         });
     }
 
-    public void Create(string bucketId, int maxMembers, Action<EosLobbyCompletion> complete)
+    public void Create(string bucketId, int maxMembers, Action<EosLobbyCompletion> complete, string? lobbyId = null)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         var options = new CreateLobbyOptions
         {
             LocalUserId = local, MaxLobbyMembers = (uint)maxMembers, BucketId = bucketId,
+            LobbyId = lobbyId ?? RoomCode.CreateLobbyId(),
             PermissionLevel = LobbyPermissionLevel.Publicadvertised, DisableHostMigration = true,
             PresenceEnabled = false, AllowInvites = false, EnableRTCRoom = false, EnableJoinById = false,
             RejoinAfterKickRequiresInvite = true

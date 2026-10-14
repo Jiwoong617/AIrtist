@@ -20,5 +20,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="../../data/words.json" Link="data/words.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="../../.cache/online/eos-client.json" LogicalName="AIrtist.OnlineConfig" Condition="Exists('../../.cache/online/eos-client.json')" />
   </ItemGroup>
 </Project>

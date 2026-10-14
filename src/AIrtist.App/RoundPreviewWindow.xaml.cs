@@ -193,6 +193,9 @@ public partial class RoundPreviewWindow : Window
         if (match.Phase == MultiplayerMatchPhase.Stopped) ClockLabel.Text = "경기 중단 · 확정 기록 보존";
         ProgressLabel.Text = string.Join("\n", state.Submission.Players.Select(p => $"{players.Single(v => v.Id == p.PlayerId).Name}  ·  {Progress(p.State)}"));
         bool gallery = state.Gallery.Phase is RoundClientPhase.Voting or RoundClientPhase.Completed;
+        ParameterPanel.Visibility = PromptComposer.Visibility = gallery ? Visibility.Collapsed : Visibility.Visible;
+        Grid.SetColumn(GallerySurface, gallery ? 0 : 2);
+        Grid.SetColumnSpan(GallerySurface, gallery ? 3 : 1);
         GalleryTitle.Text = gallery ? "모두의 그림 · 다른 사람에게 한 표" : "생성한 그림";
         GalleryHint.Text = gallery ? "자기 그림에는 투표할 수 없습니다. 선택은 한 번만 가능합니다." : online is not null
             ? "각자 그림을 제출하면 모두의 그림을 함께 볼 수 있습니다." : "다른 역할로 바꾸어 모든 참가자의 그림을 만들어 주세요.";
@@ -209,7 +212,7 @@ public partial class RoundPreviewWindow : Window
                 var tally = state.Gallery.Result?.Tallies.Single(t => t.ArtworkId == a.Id);
                 return new Card(a.Id, a.Preview, players.Single(p => p.Id == a.OwnerId).Name + (own ? " · 내 그림" : ""),
                     tally is null ? "" : $"{tally.Votes}표", own ? "내 그림" : selected ? "투표한 그림" : "이 그림에 투표",
-                    canVote && !own, selected ? "#A7E3C2" : "#344052");
+                    canVote && !own, FindResource(selected ? "Accent" : "CardBorder").ToString()!);
             }).ToArray();
         }
         ResultLabel.Text = state.Gallery.Result is { } result ? ResultText(result) : "";

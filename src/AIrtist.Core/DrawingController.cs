@@ -19,11 +19,30 @@ public sealed class LocalDrawingAi(RuntimeAssets assets) : IDrawingAi
 {
     public string Translate(string description, CancellationToken token) => new LocalTranslator(assets).Translate(description, token);
     public byte[] Generate(string translation, int seed, CancellationToken token, Action<string> progress)
-        => new LocalGenerator(assets).Generate(translation, seed, token, progress);
+        => Generate(translation, new GenerationParameters(Seed: seed), token, progress);
     public byte[] Generate(string translation, GenerationParameters parameters, CancellationToken token, Action<string> progress)
     {
         var resolved = parameters.Resolve();
-        return new LocalGenerator(assets).Generate(translation, resolved.Seed!.Value, token, progress, parameters: resolved);
+        // A Windows-session mutex prevents multiple game processes loading GPU models at once.
+        // The wait is cancellable and remains part of the normal generation deadline.
+        using var device = new Mutex(false, @"Local\AIrtist.Generation.v1");
+        bool acquired = false;
+        try
+        {
+            try
+            {
+                acquired = device.WaitOne(0);
+                if (!acquired)
+                {
+                    progress("다른 창의 이미지 생성 대기 중");
+                    acquired = WaitHandle.WaitAny([device, token.WaitHandle]) == 0;
+                }
+            }
+            catch (AbandonedMutexException) { acquired = true; }
+            token.ThrowIfCancellationRequested();
+            return new LocalGenerator(assets).Generate(translation, resolved.Seed!.Value, token, progress, parameters: resolved);
+        }
+        finally { if (acquired) device.ReleaseMutex(); }
     }
 }
 

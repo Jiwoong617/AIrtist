@@ -82,6 +82,13 @@ secrets.json
 # EOS SDK downloads and per-developer connection credentials.
 /sdks/
 eos.local.json
+# Local config variants and backups must stay private outside config/ as well.
+*.local.json
+eos.local*.json
+eos.local.json.*
+# Generated embedded credentials remain private even when copied out of .cache/.
+eos-client.json
+eos-client.json.*
 EOS-SDK*.zip
 EOSSDK*.zip
 appsettings.Local.json
