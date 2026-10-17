@@ -154,6 +154,7 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
             if (count is < 1 or > 16) return null;
             var members = new string[count];
             var memberData = new Dictionary<string, string?>();
+            var waitingMembers = new Dictionary<string, string?>();
             for (uint i = 0; i < count; i++)
             {
                 var index = new LobbyDetailsGetMemberByIndexOptions { MemberIndex = i };
@@ -165,12 +166,20 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
                 if (result is not (Result.Success or Result.NotFound)) return null;
                 if (result == Result.Success && attribute?.Data?.Value.AsUtf8 is null) return null;
                 memberData.Add(members[i], attribute?.Data?.Value.AsUtf8?.ToString());
+                attributeOptions.AttrKey = "ART_WAIT_MEMBER_V1";
+                var waitingResult = details.CopyMemberAttributeByKey(ref attributeOptions, out var waitingAttribute);
+                if (waitingResult is not (Result.Success or Result.NotFound)) return null;
+                waitingMembers.Add(members[i], waitingAttribute?.Data?.Value.AsUtf8?.ToString());
             }
             var proposalOptions = new LobbyDetailsCopyAttributeByKeyOptions { AttrKey = LobbyConnectionBootstrap.ProposalKey };
             var proposalResult = details.CopyAttributeByKey(ref proposalOptions, out var proposal);
             if (proposalResult is not (Result.Success or Result.NotFound)) return null;
             if (proposalResult == Result.Success && proposal?.Data?.Value.AsUtf8 is null) return null;
-            return new(room, Array.AsReadOnly(members)) { ConnectionProposal = proposal?.Data?.Value.AsUtf8?.ToString(), MemberConnectionData = memberData };
+            proposalOptions.AttrKey = "ART_WAIT_ROOM_V1";
+            var waitingRoomResult = details.CopyAttributeByKey(ref proposalOptions, out var waitingRoom);
+            if (waitingRoomResult is not (Result.Success or Result.NotFound)) return null;
+            return new(room, Array.AsReadOnly(members)) { ConnectionProposal = proposal?.Data?.Value.AsUtf8?.ToString(), MemberConnectionData = memberData,
+                WaitingSettings = waitingRoom?.Data?.Value.AsUtf8?.ToString(), WaitingMembers = waitingMembers };
         }
         finally { details.Release(); }
     }
@@ -185,6 +194,12 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
     }
 
     public void WriteConnectionAttribute(string lobbyId, bool owner, string value, Action<bool> complete)
+        => WriteAttribute(lobbyId, owner, value, owner ? LobbyConnectionBootstrap.ProposalKey : LobbyConnectionBootstrap.MemberKey, complete);
+
+    public void WriteWaitingAttribute(string lobbyId, bool owner, string value, Action<bool> complete)
+        => WriteAttribute(lobbyId, owner, value, owner ? "ART_WAIT_ROOM_V1" : "ART_WAIT_MEMBER_V1", complete);
+
+    private void WriteAttribute(string lobbyId, bool owner, string value, string key, Action<bool> complete)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
         var options = new UpdateLobbyModificationOptions { LobbyId = lobbyId, LocalUserId = local };
@@ -192,7 +207,7 @@ internal sealed class EosSdkLobbyApi : IEosLobbyApi
         { complete(false); return; }
         try
         {
-            var data = new AttributeData { Key = owner ? LobbyConnectionBootstrap.ProposalKey : LobbyConnectionBootstrap.MemberKey,
+            var data = new AttributeData { Key = key,
                 Value = new AttributeDataValue { AsUtf8 = value } };
             Result result;
             if (owner)

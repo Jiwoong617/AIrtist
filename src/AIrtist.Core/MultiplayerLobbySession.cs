@@ -22,7 +22,8 @@ public sealed class MultiplayerLobbySession : IDisposable
 {
     // Only call with the service adapter's once-only handoff, after the connection barrier.
     public static MultiplayerLobbySession FromPreparedConnection(PreparedLobbyConnection connection, MultiplayerCompatibility compatibility,
-        IEnumerable<Word> words, IDrawingAi ai, MultiplayerMatchSettings? hostSettings = null, string? firstWordId = null, TimeProvider? clock = null)
+        IEnumerable<Word> words, IDrawingAi ai, MultiplayerMatchSettings? hostSettings = null, string? firstWordId = null, TimeProvider? clock = null,
+        IReadOnlyDictionary<string, string>? displayNames = null)
     {
         ArgumentNullException.ThrowIfNull(connection); ArgumentNullException.ThrowIfNull(compatibility);
         if (connection.CompatibilityHash != compatibility.ConnectionHash() || connection.Members is null || connection.Members.Count is < 2 or > 16 ||
@@ -30,7 +31,7 @@ public sealed class MultiplayerLobbySession : IDisposable
             (connection.LocalId == connection.HostId && connection.Members.Any(m => !connection.Transport.IsConnected(m.PlayerId))))
             throw new ArgumentException("전원 연결 준비와 현재 호환성을 확인한 뒤 대기방을 시작하세요.");
         var members = connection.Members.OrderBy(m => m.PlayerId, StringComparer.Ordinal)
-            .Select((m, i) => new LobbyMember(new(m.PlayerId, $"참가자 {i + 1}"), m.SessionId)).ToArray();
+            .Select((m, i) => new LobbyMember(new(m.PlayerId, displayNames?.GetValueOrDefault(m.PlayerId) ?? $"참가자 {i + 1}"), m.SessionId)).ToArray();
         return new(new(connection.ScopeId, connection.HostId, connection.LocalId, compatibility, members), words, ai,
             connection.Transport, hostSettings, firstWordId, clock);
     }

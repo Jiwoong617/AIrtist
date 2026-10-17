@@ -20,7 +20,11 @@ public partial class VotingWindow : Window
     private string? shownViewer;
     private Card[] cards = [];
     private bool ready;
-    private sealed record Card(string Id, BitmapSource Preview, string OwnerLabel, string Note, string Action, bool CanVote, Brush Outline);
+    private sealed record Card(string Id, BitmapSource Preview, string OwnerLabel, string Note, string Action, bool CanVote, Brush Outline)
+    {
+        // Keep WPF's accessibility fallback independent of image/decoder thread affinity.
+        public override string ToString() => OwnerLabel;
+    }
 
     public VotingWindow(byte[]? recentDrawing = null)
     {
@@ -150,6 +154,7 @@ public partial class VotingWindow : Window
     {
         var margin = Page.Margin; Page.Margin = new(0); Page.Width = width; Page.Height = height;
         Page.Measure(new Size(width, height)); Page.Arrange(new Rect(0, 0, width, height)); Page.UpdateLayout();
+        GalleryAccessibilityChecks.Verify(Gallery, item => ((Card)item).OwnerLabel);
         var image = new RenderTargetBitmap((int)(width * dpi / 96), (int)(height * dpi / 96), dpi, dpi, PixelFormats.Pbgra32);
         image.Render(Page);
         var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(image));

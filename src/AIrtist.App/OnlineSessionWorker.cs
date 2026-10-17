@@ -14,6 +14,7 @@ internal sealed record OnlineSnapshot(long Generation, OnlinePhase Phase, bool H
     LobbyBootstrapSnapshot? Connection, LobbySessionSnapshot? Lobby, MatchRuntimeSnapshot? Match, string Message, string? Error)
 {
     public long ProcessedCommands { get; init; }
+    public WaitingRoom? Waiting { get; init; }
 }
 
 // EOS, transport, Core Tick, commands and disposal all run on one OS thread.
@@ -32,6 +33,9 @@ internal sealed class OnlineSessionWorker
     private IOnlineConnection? connection;
     private MultiplayerLobbySession? core;
     private MultiplayerMatchSettings? createdSettings;
+    private WaitingRoomCoordinator? waitingRoom;
+    private string nickname = "플레이어";
+    private bool autoReady;
     private TaskCompletionSource? disconnect;
     private bool disconnectRequested, stopping, leaving, failed;
     private long generation, leaveStarted;
@@ -131,7 +135,7 @@ internal sealed class OnlineSessionWorker
         {
             if (connection is not null) throw new InvalidOperationException();
             generation++; failed = false; message = "기기 인증 중입니다.";
-            try { connection = factory.Connect(command.Text, command.Extra, compatibility.ConnectionHash()); }
+            try { nickname = PlayerNickname.Normalize(command.Extra); connection = factory.Connect(command.Text, nickname, compatibility.ConnectionHash()); }
             catch (InvalidDataException ex) { Fail(ex.Message); } // EosSettings deliberately sanitizes these.
             return;
         }
@@ -149,9 +153,13 @@ internal sealed class OnlineSessionWorker
             case OnlineAction.Prepare:
                 if (connection.Bootstrap is not null) throw new InvalidOperationException();
                 connection.Prepare(); break;
-            case OnlineAction.Ready: RequiredLobby().SetReady(command.Revision, command.Ready); break;
-            case OnlineAction.Settings: RequiredLobby().UpdateSettings(command.Revision, command.Settings!); break;
-            case OnlineAction.Start: RequiredLobby().Start(command.Revision); break;
+            case OnlineAction.Ready:
+                if (waitingRoom is not null && core is null) waitingRoom.SetReady(command.Ready); else RequiredLobby().SetReady(command.Revision, command.Ready); break;
+            case OnlineAction.Settings:
+                if (waitingRoom is not null && core is null) { waitingRoom.ChangeSettings(command.Settings!); createdSettings = command.Settings; }
+                else RequiredLobby().UpdateSettings(command.Revision, command.Settings!); break;
+            case OnlineAction.Start:
+                if (waitingRoom is not null && core is null) waitingRoom.Start(); else RequiredLobby().Start(command.Revision); break;
             case OnlineAction.Translate: RequiredMatch().PrepareTranslation(command.RoundId, command.Text); break;
             case OnlineAction.Draw: RequiredMatch().Draw(command.RoundId, command.Text, command.Parameters ?? throw new ArgumentException("생성 설정이 필요합니다.")); break;
             case OnlineAction.Confirm: RequiredMatch().Confirm(command.RoundId, command.Revision, command.Text,
@@ -184,10 +192,24 @@ internal sealed class OnlineSessionWorker
         {
             var prepared = connection.TakeConnection();
             try { core = MultiplayerLobbySession.FromPreparedConnection(prepared, compatibility, words, ai,
-                prepared.HostId == prepared.LocalId ? createdSettings : null); }
+                prepared.HostId == prepared.LocalId ? waitingRoom?.Snapshot?.Settings ?? createdSettings : null, displayNames: waitingRoom?.Names); }
             catch { prepared.Transport.Dispose(); throw; }
         }
+        if (!failed && connection.SupportsWaiting && connection.Lobby?.State == EosLobbyState.Joined)
+        {
+            waitingRoom ??= new(connection, nickname, createdSettings ?? MultiplayerMatchSettings.Default);
+            if (connection.Bootstrap is null)
+            {
+                waitingRoom.Tick();
+                if (waitingRoom.BeginConnection) connection.Prepare();
+            }
+        }
         if (!failed) core?.Tick();
+        if (!failed && waitingRoom?.BeginConnection == true && core is not null && core.Snapshot() is { Phase: LobbySessionPhase.Waiting, Lobby: { } lobby })
+        {
+            if (!autoReady) { core.SetReady(lobby.Revision, true); autoReady = true; }
+            if (core.Snapshot().CanStart) core.Start(lobby.Revision);
+        }
     }
 
     private void Fail(string reason)
@@ -207,7 +229,7 @@ internal sealed class OnlineSessionWorker
     }
     private void EndDisconnect(bool confirmed)
     {
-        connection?.Dispose(); connection = null; createdSettings = null; leaving = failed = false;
+        connection?.Dispose(); connection = null; createdSettings = null; waitingRoom = null; autoReady = false; leaving = failed = false;
         message = confirmed ? "접속을 종료했습니다." : "로컬 접속을 종료했습니다. 서비스의 방 나가기 응답은 확인하지 못했습니다.";
         Publish();
         lock (gate) { disconnect?.TrySetResult(); disconnect = null; }
@@ -219,6 +241,6 @@ internal sealed class OnlineSessionWorker
             auth?.State is EosConnectionState.Connected or EosConnectionState.Renewing ? OnlinePhase.Connected : OnlinePhase.Connecting;
         string status = leaving || failed || connection is null ? message : core?.Snapshot().Message ?? connection.Bootstrap?.Message ?? connection.Lobby?.Message ?? auth!.Message;
         Volatile.Write(ref snapshot, new(generation, phase, connection is not null, auth?.PlayerId, connection?.Lobby, connection?.Bootstrap,
-            core?.Snapshot(), core?.Match?.Snapshot(), status, string.IsNullOrEmpty(error) ? null : error) { ProcessedCommands = processedCommands });
+            core?.Snapshot(), core?.Match?.Snapshot(), status, string.IsNullOrEmpty(error) ? null : error) { ProcessedCommands = processedCommands, Waiting = waitingRoom?.Snapshot });
     }
 }

@@ -6,7 +6,7 @@ using AIrtist.Eos;
 
 namespace AIrtist.App;
 
-// Launched as three independent EXEs by check-local.ps1. No EOS service access.
+// Launched as two or three independent EXEs by check-local.ps1. EOS is opt-in.
 internal static class LocalProcessSmoke
 {
     internal sealed class OfflineFactory : IOnlineConnectionFactory
@@ -14,8 +14,11 @@ internal static class LocalProcessSmoke
         public IOnlineConnection Connect(string path, string name, string hash) => throw new IOException("Diagnostic offline backend");
         public void Dispose() { }
     }
-    internal static async Task<object> Run(RuntimeAssets assets, string root, int index, bool realAi, bool onlineHost)
+    internal static async Task<object> Run(RuntimeAssets assets, string root, int index, bool realAi, bool onlineHost, int participants = 3)
     {
+        if (participants is not (2 or 3) || index < 0 || index >= participants) throw new ArgumentOutOfRangeException(nameof(participants));
+        string[] names = ["붓쟁이", "그림친구", "별빛"];
+        int[] expectedVotes = participants == 2 ? [1, 1] : [0, 1, 2];
         string output = Path.Combine(root, "player-" + index); Directory.CreateDirectory(output);
         string wordsPath = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
         var compatibility = MultiplayerCompatibility.FromVerifiedAssets(assets, wordsPath);
@@ -23,7 +26,10 @@ internal static class LocalProcessSmoke
         if (index == 0) await LocalConnectionChecks.Run(assets);
         var worker = new OnlineSessionWorker(compatibility, WordCatalog.Load(wordsPath), ai,
             new AutomaticRoomFactory(index == 0 && onlineHost ? new EosOnlineConnectionFactory() : new OfflineFactory()));
-        var room = new OnlineRoomWindow(assets, ai, worker);
+        var shell = new MenuWindow(assets, Path.Combine(output, "settings.json"), ai, worker);
+        shell.Show();
+        var room = await shell.SmokeMultiplayerAsync();
+        room.SmokeNickname(names[index]);
         RoundPreviewWindow? game = null; int rounds = realAi ? 1 : 2;
         string codeFile = Path.Combine(root, "room-code.txt"); var galleryHashes = new List<string[]>();
         var total = Stopwatch.StartNew();
@@ -44,7 +50,7 @@ internal static class LocalProcessSmoke
         {
             if (index == 0)
             {
-                room.SmokeLocalCreate(rounds);
+                room.SmokeLocalCreate(rounds, participants);
                 await Until(() => worker.Snapshot.Room?.State == EosLobbyState.Joined, "create");
                 if (onlineHost) await Until(() => worker.Snapshot.Room?.Message == "방 참가 완료", "eos-mirror-created", 40);
                 string code = RoomCode.FromLobbyId(worker.Snapshot.Room!.Membership!.Lobby.LobbyId)!;
@@ -55,40 +61,60 @@ internal static class LocalProcessSmoke
                 await Until(() => File.Exists(codeFile), "wait-code");
                 room.SmokeJoinCode(File.ReadAllText(codeFile));
             }
-            await Until(() => worker.Snapshot.Room?.Membership?.Members.Count == 3, "three-process-members");
+            await Until(() => worker.Snapshot.Room?.Membership?.Members.Count == participants, "all-process-members");
             var roster = worker.Snapshot.Room!.Membership!.Members.Order(StringComparer.Ordinal).ToArray();
             string id = worker.Snapshot.LocalId!;
-            OnlineSmoke.Require(roster.Distinct().Count() == 3 && roster.Contains(id), "Process identities not independent");
-            room.SmokeRender(Path.Combine(output, "room.png"));
-            room.SmokeLocalPrepare();
-            await Until(() => worker.Snapshot.Lobby?.Lobby is not null, "connection-barrier");
-            game = new RoundPreviewWindow(assets, ai, worker);
-            game.OnlineSmokeReady(index == 0);
-            if (index == 0)
+            OnlineSmoke.Require(roster.Distinct().Count() == participants && roster.Contains(id), "Process identities not independent");
+            await Until(() => worker.Snapshot.Waiting?.Players.All(p => p.Name != "접속 중") == true, "nicknames");
+            OnlineSmoke.Require(worker.Snapshot.Waiting!.Players.Select(p => p.Name).Order().SequenceEqual(names.Take(participants).Order()), "Nicknames not synchronized");
+            shell.SmokeSettings(index != 1, Path.Combine(output, "waiting-settings.png"));
+            MenuWindow.Capture(shell, Path.Combine(output, "room.png"));
+            string beforeSettings = worker.Snapshot.Waiting!.Revision;
+            if (index != 0) room.SmokeWaitingReady();
+            else
             {
-                await Until(() => worker.Snapshot.Lobby!.CanStart, "ready-all"); game.OnlineSmokeStart();
+                await Until(() => worker.Snapshot.Waiting?.CanStart == true, "ready-all");
+                room.SmokeWaitingSettings(new(6.5f, 8, 42));
             }
+            await Until(() => worker.Snapshot.Waiting is { Pending: false } updated && updated.Revision != beforeSettings, "settings-published");
+            OnlineSmoke.Require(worker.Snapshot.Waiting!.Settings.RoundPolicy.FixedParameters == new GenerationParameters(6.5f, 8, 42), "Room parameters not synchronized");
+            OnlineSmoke.Require(worker.Snapshot.Waiting!.Players.Where(p => !p.Host).All(p => !p.Ready), "Settings retained stale readiness");
+            File.WriteAllText(Path.Combine(output, "readiness-reset.txt"), "checked");
+            await Until(() => Enumerable.Range(0, participants).All(i => File.Exists(Path.Combine(root, "player-" + i, "readiness-reset.txt"))), "readiness-reset-barrier");
+            MenuWindow.Capture(shell, Path.Combine(output, "room-fixed.png"));
+            if (index != 0) room.SmokeWaitingReady();
+            else
+            {
+                await Until(() => worker.Snapshot.Waiting?.CanStart == true, "ready-again");
+                room.SmokeWaitingReady();
+            }
+            await Until(() => room.Game is not null, "single-lobby-start");
+            game = room.Game!;
+            OnlineSmoke.Require(System.Windows.Application.Current.Windows.Count == 1, "Multiplayer opened another window");
             for (int round = 1; round <= rounds; round++)
             {
                 await Until(() => worker.Snapshot.Match?.RoundNumber == round && worker.Snapshot.Match.Round?.Submission.Phase == SubmissionClientPhase.Writing, "writing-" + round);
-                game.OnlineSmokeDraw(index);
+                OnlineSmoke.Require(worker.Snapshot.Match!.Round!.Submission.FixedParameters == new GenerationParameters(6.5f, 8, 42), "Match lost fixed room parameters");
+                shell.SmokeSettings(round % 2 == 0, Path.Combine(output, $"round-{round}-settings.png"));
+                game.OnlineSmokeDraw(index, index == 1 ? "길고 파란 물체" : "둥글고 붉은 물체");
                 await Until(() => worker.Snapshot.Match?.Round?.Gallery.CanVote == true, "gallery-" + round, realAi ? 300 : 45);
                 var artworks = worker.Snapshot.Match!.Round!.Gallery.Artworks;
-                OnlineSmoke.Require(artworks.Count == 3, "Gallery missing peer PNG");
+                OnlineSmoke.Require(artworks.Count == participants, "Gallery missing peer PNG");
+                if (realAi) OnlineSmoke.Require(artworks.Select(a => a.Sha256).Distinct().Count() >= 2, "Different descriptions produced identical diagnostic images");
                 galleryHashes.Add(artworks.OrderBy(a => a.OwnerId, StringComparer.Ordinal).Select(a => a.Sha256).ToArray());
                 foreach (var art in artworks) File.WriteAllBytes(Path.Combine(output, $"round-{round}-{art.OwnerId}.png"), art.CopyPng());
                 game.OnlineSmokeRender(Path.Combine(output, $"gallery-{round}.png"));
                 int self = Array.IndexOf(roster, id); int[] targets = [1, 0, 1];
                 game.OnlineSmokeVote(roster[targets[self]]);
                 await Until(() => worker.Snapshot.Match!.Results.Count == round, "votes-" + round);
-                OnlineSmoke.Require(worker.Snapshot.Match!.Results[round - 1].Result.Tallies.Select(t => t.Votes).Order().SequenceEqual(new[] { 0, 1, 2 }), "Vote tallies differ");
+                OnlineSmoke.Require(worker.Snapshot.Match!.Results[round - 1].Result.Tallies.Select(t => t.Votes).Order().SequenceEqual(expectedVotes), "Vote tallies differ");
                 if (index == 0 && round < rounds)
                 { await Until(() => worker.Snapshot.Match!.CanAdvance, "advance"); game.OnlineSmokeNext(); }
             }
             await Until(() => worker.Snapshot.Match?.Phase == MultiplayerMatchPhase.Completed, "complete");
             game.OnlineSmokeRender(Path.Combine(output, "result.png"));
             File.WriteAllText(Path.Combine(output, "complete.txt"), "complete");
-            await Until(() => Enumerable.Range(0, 3).All(i => File.Exists(Path.Combine(root, "player-" + i, "complete.txt"))), "all-complete");
+            await Until(() => Enumerable.Range(0, participants).All(i => File.Exists(Path.Combine(root, "player-" + i, "complete.txt"))), "all-complete");
             if (index == 0) await worker.DisconnectAsync();
             else
             {
@@ -105,9 +131,10 @@ internal static class LocalProcessSmoke
                 room.SmokeVerifyJoinRetry(); await worker.DisconnectAsync();
             }
             return new { status = "passed", index, processId = Environment.ProcessId, id, roster, rounds, realAi, eos = onlineHost && index == 0,
+                singleWindow = true, nicknames = true, settingsResetReadiness = true, fixedParameters = true,
                 tcpLoopback = true, boundaryChecks = index == 0, automaticEosFallback = onlineHost && index == 0,
-                galleryHashes, votes = new[] { 0, 1, 2 }, hostLeave = true, elapsedSeconds = total.Elapsed.TotalSeconds };
+                galleryHashes, votes = expectedVotes, galleryAccessibility = true, hostLeave = true, elapsedSeconds = total.Elapsed.TotalSeconds };
         }
-        finally { await worker.StopAsync(); game?.Close(); room.Close(); }
+        finally { await room.CloseAsync(); shell.Close(); await worker.StopAsync(); }
     }
 }

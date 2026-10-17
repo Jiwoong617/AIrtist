@@ -7,7 +7,7 @@ using AIrtist.Core;
 
 namespace AIrtist.App;
 
-public partial class MainWindow : Window
+public partial class MainWindow : GameScreen
 {
     private readonly RuntimeAssets assets;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMilliseconds(100) };
@@ -19,9 +19,7 @@ public partial class MainWindow : Window
     private DrawingResult? shownResult;
     private bool closed;
     private OnlineSessionWorker? onlineWorker;
-    private bool closingOnline, onlineStopped;
     private Task? drawingClick;
-    private bool closingDrawing, drawingStopped;
     public int SmokeDispatcherTicks { get; private set; }
 
     public MainWindow(RuntimeAssets assets, IDrawingAi? ai = null)
@@ -31,25 +29,13 @@ public partial class MainWindow : Window
         sharedAi = ai;
         timer.Tick += (_, _) => { SmokeDispatcherTicks++; Refresh(); };
         Closed += (_, _) => { closed = true; timer.Stop(); lifetime.Cancel(); drawing?.Dispose(); };
-        Closing += async (_, e) =>
-        {
-            if (!drawingStopped && drawingClick is { IsCompleted: false })
-            {
-                e.Cancel = true; if (closingDrawing) return;
-                closingDrawing = true; IsEnabled = false;
-                drawing?.Cancel(drawing.Snapshot.Version);
-                await drawingClick; drawingStopped = true;
-                _ = Dispatcher.BeginInvoke(new Action(Close)); return;
-            }
-            if (onlineWorker is null || onlineStopped) return;
-            e.Cancel = true; if (closingOnline) return;
-            closingOnline = true; IsEnabled = false;
-            await onlineWorker.StopAsync(); onlineStopped = true;
-            // StopAsync may already be complete; never reenter Close from the Closing event.
-            _ = Dispatcher.BeginInvoke(new Action(Close));
-        };
     }
-
+    protected override async Task OnCloseAsync()
+    {
+        drawing?.Cancel(drawing.Snapshot.Version);
+        if (drawingClick is not null) await drawingClick;
+        if (onlineWorker is not null) await onlineWorker.StopAsync();
+    }
     public async Task InitializeAsync()
     {
         try
@@ -157,8 +143,6 @@ public partial class MainWindow : Window
             ReviewedTranslation.Text = draft.Translation;
         }
         Cancel.IsEnabled = state.Busy;
-        VotingPreview.IsEnabled = !state.Busy;
-        Online.IsEnabled = !state.Busy;
         Cancel.Content = state.Phase == DrawingPhase.Translating ? "번역 취소" : "취소";
         Activity.Visibility = state.Busy ? Visibility.Visible : Visibility.Hidden;
         if (changed || state.Busy) StatusLabel.Text = state.Message;
@@ -173,26 +157,6 @@ public partial class MainWindow : Window
     }
 
     private void CancelClicked(object sender, RoutedEventArgs e) { drawing?.Cancel(shownVersion); Refresh(); }
-    private void VotingClicked(object sender, RoutedEventArgs e)
-    {
-        if (drawing?.Snapshot.Busy != false) return;
-        try { new RoundPreviewWindow(assets, sharedAi!) { Owner = this }.ShowDialog(); }
-        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException)
-        { StatusLabel.Text = "경기 미리보기를 열지 못했습니다. 단어 데이터와 앱 파일을 확인해 주세요."; }
-    }
-    private void OnlineClicked(object sender, RoutedEventArgs e)
-    {
-        if (drawing?.Snapshot.Busy != false) return;
-        try
-        {
-            string words = Path.Combine(AppContext.BaseDirectory, "data", "words.json");
-            onlineWorker ??= new(MultiplayerCompatibility.FromVerifiedAssets(assets, words), WordCatalog.Load(words), sharedAi!);
-            var args = Environment.GetCommandLineArgs(); int index = Array.IndexOf(args, "--eos-config");
-            string path = index >= 0 && index + 1 < args.Length ? Path.GetFullPath(args[index + 1]) : "";
-            new OnlineRoomWindow(assets, sharedAi!, onlineWorker, path) { Owner = this }.ShowDialog();
-        }
-        catch (Exception) { StatusLabel.Text = "온라인 방 화면을 열지 못했습니다. 앱·단어 파일과 설정 경로를 확인해 주세요."; }
-    }
     private void EditClicked(object sender, RoutedEventArgs e)
     {
         if (drawing is null) return;

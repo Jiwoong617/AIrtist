@@ -10,7 +10,7 @@ using AIrtist.Core;
 
 namespace AIrtist.App;
 
-public partial class RoundPreviewWindow : Window
+public partial class RoundPreviewWindow : GameScreen
 {
     private readonly IDrawingAi ai;
     private readonly MultiplayerCompatibility compatibility;
@@ -30,7 +30,12 @@ public partial class RoundPreviewWindow : Window
     private byte[]? shownPng;
     private bool closed;
     private string? commandError;
-    private record Card(string Id, BitmapSource Image, string Label, string Votes, string Action, bool CanVote, string Outline);
+    private record Card(string Id, BitmapSource Image, string Label, string Votes, string Action, bool CanVote, string Outline)
+    {
+        // UI Automation uses ToString for an item's name. A frozen frame can still have
+        // a decoder owned by the network thread; never stringify its image members.
+        public override string ToString() => Label;
+    }
 
     // The caller verifies assets and shares one serialized AI service with drawing.
     public RoundPreviewWindow(RuntimeAssets assets, IDrawingAi sharedAi)
@@ -43,7 +48,7 @@ public partial class RoundPreviewWindow : Window
         RoundCount.ItemsSource = Enumerable.Range(1, 10).ToArray(); RoundCount.SelectedItem = 3;
         WordChoice.ItemsSource = words; WordChoice.SelectedIndex = 0;
         timer.Tick += (_, _) => { dispatcherTicks++; Refresh(); }; timer.Start();
-        Closed += async (_, _) => { closed = true; timer.Stop(); await StopAsync(); };
+        Closed += (_, _) => { closed = true; timer.Stop(); };
     }
     private MultiplayerMatchRuntime? Current => Viewer.SelectedIndex >= 0 && Viewer.SelectedIndex < rounds.Length ? rounds[Viewer.SelectedIndex] : null;
     private RoundRuntimeSnapshot? CurrentRound => (onlineView?.Match ?? Current?.Snapshot())?.Round;
@@ -85,6 +90,7 @@ public partial class RoundPreviewWindow : Window
             }
         });
     }
+    protected override async Task OnCloseAsync() { closed = true; timer.Stop(); await StopAsync(); }
     private async Task StopAsync()
     {
         if (online is not null) return; // Room owner asks the worker to leave; never dispose EOS on UI.
@@ -202,7 +208,7 @@ public partial class RoundPreviewWindow : Window
         if (!ReferenceEquals(shownPng, state.OwnPng)) { shownPng = state.OwnPng; OwnImage.Source = shownPng is null ? null : ImageCodec.Load(shownPng); }
         OwnImage.Visibility = !gallery && shownPng is not null ? Visibility.Visible : Visibility.Collapsed;
         bool canVote = state.Gallery.CanVote && match.Phase == MultiplayerMatchPhase.Playing;
-        string key = $"{role}/{gallery}/{canVote}/{state.Gallery.SelectedArtworkId}/{state.Gallery.Result?.Revision}";
+        string key = $"{ThemeManager.Dark}/{role}/{gallery}/{canVote}/{state.Gallery.SelectedArtworkId}/{state.Gallery.Result?.Revision}";
         if (key != galleryKey)
         {
             galleryKey = key;

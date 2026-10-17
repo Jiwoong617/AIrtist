@@ -7,6 +7,8 @@ public sealed record EosLobbyMembership(EosLobbyListing Lobby, IReadOnlyList<str
 {
     public string? ConnectionProposal { get; init; }
     public IReadOnlyDictionary<string, string?> MemberConnectionData { get; init; } = new Dictionary<string, string?>();
+    public string? WaitingSettings { get; init; }
+    public IReadOnlyDictionary<string, string?> WaitingMembers { get; init; } = new Dictionary<string, string?>();
 }
 public sealed record EosLobbySnapshot(EosLobbyState State, IReadOnlyList<EosLobbyListing> SearchResults,
     EosLobbyMembership? Membership, long MembershipRevision, string Message);
@@ -28,5 +30,6 @@ internal interface IEosLobbyApi : IDisposable
     void Leave(string lobbyId, Action<EosLobbyCompletion> complete);
     EosLobbyMembership? ReadMembership(string lobbyId);
     void WriteConnectionAttribute(string lobbyId, bool owner, string value, Action<bool> complete);
+    void WriteWaitingAttribute(string lobbyId, bool owner, string value, Action<bool> complete) => complete(false);
     void ClearSearch();
 }

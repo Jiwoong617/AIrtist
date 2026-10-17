@@ -17,6 +17,8 @@ internal interface IOnlineConnection : IDisposable
     void Prepare();
     PreparedLobbyConnection TakeConnection();
     void Leave();
+    bool SupportsWaiting => false;
+    void WriteWaitingAttribute(bool owner, string value, Action<bool> complete) => complete(false);
 }
 
 internal interface IOnlineConnectionFactory : IDisposable
@@ -59,6 +61,8 @@ internal sealed class EosOnlineConnectionFactory : IOnlineConnectionFactory
         public void Prepare() => bootstrap = session.PrepareLobbyConnection();
         public PreparedLobbyConnection TakeConnection() => bootstrap!.TakeConnection();
         public void Leave() => Room.Leave();
+        public bool SupportsWaiting => true;
+        public void WriteWaitingAttribute(bool owner, string value, Action<bool> complete) => Room.WriteWaitingAttribute(owner, value, complete);
         public void Dispose() => session.Dispose();
     }
 }

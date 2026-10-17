@@ -17,8 +17,8 @@ public partial class RoundPreviewWindow
         onlineRoomCode = RoomCode.FromLobbyId(onlineView.Room?.Membership?.Lobby.LobbyId);
         if (onlineRoomCode is not null)
         { OnlineRoomCode.Content = "방 코드   " + RoomCode.Display(onlineRoomCode) + "   ⧉"; OnlineRoomCode.Visibility = Visibility.Visible; }
-        Title = "AIrtist · 온라인 경기"; WindowHeading.Text = "온라인 경기";
-        WindowHint.Text = "모두 준비하면 방장이 경기를 시작합니다. 그림은 각자의 PC에서 생성합니다.";
+        Title = "AIrtist · 멀티 플레이"; WindowHeading.Text = "멀티 플레이";
+        WindowHint.Visibility = Visibility.Collapsed;
         LobbyGuide.Text = "모두 준비하면 방장이 경기를 시작합니다. 내 이름 옆에 ‘나’가 표시됩니다.";
         LobbyPolicy.Text = "설정 변경 시 모두 다시 준비합니다. 참가자·방장이 바뀌면 접속을 종료하고 새로 모여 주세요.";
         Count.Visibility = CountCaption.Visibility = WordChoice.Visibility = WordCaption.Visibility = RolePanel.Visibility = Visibility.Collapsed;

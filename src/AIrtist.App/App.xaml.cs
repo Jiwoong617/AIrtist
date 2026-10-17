@@ -21,7 +21,8 @@ public partial class App : Application
             string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);
             try
             {
-                var preview = new VotingWindow(); MainWindow = preview;
+                var preview = new VotingWindow();
+                preview.Show();
                 var report = preview.Smoke(output, e.Args.Skip(2).ToArray());
                 File.WriteAllText(Path.Combine(output, "voting-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
                 File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}");
@@ -46,7 +47,9 @@ public partial class App : Application
             Directory.CreateDirectory(Path.GetDirectoryName(resultPath)!);
             try
             {
-                var report = await LocalProcessSmoke.Run(assets, output, index, e.Args.Contains("--real-ai"), e.Args.Contains("--online-host"));
+                int playersIndex = Array.IndexOf(e.Args, "--players");
+                int participants = playersIndex < 0 ? 3 : int.Parse(e.Args[playersIndex + 1]);
+                var report = await LocalProcessSmoke.Run(assets, output, index, e.Args.Contains("--real-ai"), e.Args.Contains("--online-host"), participants);
                 File.WriteAllText(resultPath, JsonSerializer.Serialize(report, RuntimeAssets.Json)); Shutdown(0);
             }
             catch (Exception ex)
@@ -118,7 +121,7 @@ public partial class App : Application
             try
             {
                 await Task.Run(() => assets.Verify(CancellationToken.None));
-                preview = new RoundPreviewWindow(assets, new SerializedDrawingAi(new LocalDrawingAi(assets))); MainWindow = preview;
+                preview = new RoundPreviewWindow(assets, new SerializedDrawingAi(new LocalDrawingAi(assets)));
                 var report = e.Args[0] == "--lobby-smoke" ? await preview.LobbySmokeAsync(output)
                     : await preview.SmokeAsync(output, e.Args[0] == "--match-smoke" ? 2 : 1);
                 File.WriteAllText(Path.Combine(output, e.Args[0][2..] + ".json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
@@ -138,7 +141,7 @@ public partial class App : Application
             var menu = new MenuWindow(assets); MainWindow = menu; menu.Show(); return;
         }
         var window = new MainWindow(assets);
-        MainWindow = window;
+
         if (e.Args.FirstOrDefault() is "--self-check" or "--smoke" or "--drawing-smoke" or "--parameter-smoke")
         {
             string destination = Path.GetFullPath(e.Args[1]);
@@ -170,8 +173,7 @@ public partial class App : Application
         }
         else
         {
-            window.Show();
-            await window.InitializeAsync();
+            throw new InvalidOperationException("Use the application shell.");
         }
     }
 }

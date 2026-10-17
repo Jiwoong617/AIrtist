@@ -4,7 +4,7 @@ using System.Windows;
 
 namespace AIrtist.App;
 
-internal sealed record GameSettings(int Width = 1120, int Height = 820, int Bgm = 70, int Sfx = 70)
+internal sealed record GameSettings(int Width = 1120, int Height = 820, int Bgm = 70, int Sfx = 70, bool DarkMode = false)
 {
     internal static readonly (int Width, int Height)[] Sizes = [(1120, 820), (1280, 900), (1600, 900), (1920, 1080)];
     internal static string FilePath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AIrtist", "settings.json");

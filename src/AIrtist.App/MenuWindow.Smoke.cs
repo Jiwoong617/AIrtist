@@ -8,42 +8,67 @@ namespace AIrtist.App;
 
 public partial class MenuWindow
 {
+    internal async Task<OnlineRoomWindow> SmokeMultiplayerAsync()
+    {
+        MultiClicked(this, new());
+        await OnlineSmoke.Until(() => child is OnlineRoomWindow);
+        Require(Application.Current.Windows.Cast<Window>().Count(w => w.IsVisible) == 1, "More than one window is visible");
+        return (OnlineRoomWindow)child!;
+    }
+    internal void SmokeSettings(bool dark, string path)
+    {
+        var screen = child; var game = (child as OnlineRoomWindow)?.Game;
+        ShellPage.UpdateLayout();
+        var point = Settings.TranslatePoint(new Point(Settings.ActualWidth, Settings.ActualHeight / 2), ShellPage);
+        var right = ShellPage.ActualWidth - point.X;
+        SettingsClicked(this, new()); ThemeChoice.SelectedIndex = dark ? 1 : 0; ApplyClicked(this, new());
+        Require(ThemeManager.Dark == dark && GameSettings.Load(settingsPath).DarkMode == dark, "Theme was not saved");
+        Require(child == screen && (child as OnlineRoomWindow)?.Game == game, "Settings replaced the active screen");
+        Capture(ShellPage, path);
+        BackClicked(this, new());
+        ShellPage.UpdateLayout();
+        var after = Settings.TranslatePoint(new Point(Settings.ActualWidth, Settings.ActualHeight / 2), ShellPage);
+        Require(Math.Abs(ShellPage.ActualWidth - after.X - right) < 1 && Math.Abs(after.Y - point.Y) < 1,
+            $"Settings anchor moved: {right}/{point.Y} -> {ShellPage.ActualWidth - after.X}/{after.Y}");
+    }
     internal async Task<object> SmokeAsync(string output)
     {
         Show();
-        Require(MainMenu.Visibility == Visibility.Visible && SettingsPanel.Visibility == Visibility.Collapsed, "Startup is not the main menu");
-        Capture(MenuPage, Path.Combine(output, "main-menu.png"));
-        SettingsClicked(this, new());
-        Resolution.SelectedIndex = 1; Bgm.Value = 34; Sfx.Value = 81; ApplyClicked(this, new());
-        Require(GameSettings.Load(settingsPath) == new GameSettings(1280, 900, 34, 81), "Settings did not persist");
-        Require(Width == Math.Min(1280, SystemParameters.WorkArea.Width), "Resolution not applied");
-        Capture(MenuPage, Path.Combine(output, "settings.png"));
-        BackClicked(this, new());
-        _ = Dispatcher.BeginInvoke(new Action(() => SingleClicked(this, new())));
-        await OnlineSmoke.Until(() => child is MainWindow);
-        var drawingWindow = (MainWindow)child!;
-        object drawingReport;
-        try
+        var labels = new ParameterEditor();
+        foreach (var name in new[] { "GuidanceLabel", "StepsLabel", "SeedLabel" })
         {
-            Require(drawingWindow.Width == Width && drawingWindow.Height == Height && !IsVisible, "Drawing screen did not inherit settings");
-            drawingReport = await drawingWindow.OneClickSmokeAsync(output);
+            var label = (System.Windows.Controls.TextBlock)labels.FindName(name);
+            Require(System.Windows.Controls.ToolTipService.GetInitialShowDelay(label) == 1000 &&
+                System.Windows.Controls.ToolTipService.GetShowOnDisabled(label) && label.ToolTip is string { Length: > 0 }, "Parameter tooltip missing");
         }
-        finally { drawingWindow.Close(); }
-        await OnlineSmoke.Until(() => child is null && IsVisible);
-        _ = Dispatcher.BeginInvoke(new Action(() => MultiClicked(this, new())));
-        await OnlineSmoke.Until(() => child is OnlineRoomWindow);
-        var room = (OnlineRoomWindow)child!;
-        Require(room.Width == Width && !IsVisible, "Multiplayer screen navigation failed");
-        room.SmokeRender(Path.Combine(output, "multiplayer-room.png")); room.Close();
-        await OnlineSmoke.Until(() => child is null && IsVisible);
+        Require(MainMenu.Visibility == Visibility.Visible && SettingsOverlay.Visibility == Visibility.Collapsed, "Startup is not the main menu");
+        var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+        Capture(ShellPage, Path.Combine(output, "main-menu.png"));
         SettingsClicked(this, new());
-        Require(Bgm.Value == 34 && Sfx.Value == 81 && Resolution.SelectedIndex == 1, "Settings were lost after navigation");
-        BackClicked(this, new());
+        Resolution.SelectedIndex = 1; Bgm.Value = 34; Sfx.Value = 81; ThemeChoice.SelectedIndex = 1; ApplyClicked(this, new());
+        Require(GameSettings.Load(settingsPath) == new GameSettings(1280, 900, 34, 81, true), "Settings did not persist");
+        Capture(ShellPage, Path.Combine(output, "settings-dark.png")); BackClicked(this, new());
+        SingleClicked(this, new());
+        await OnlineSmoke.Until(() => child is MainWindow drawing && drawing.SmokeInitialized);
+        var drawingWindow = (MainWindow)child!;
+        Require(IsVisible && ScreenHost.Content == drawingWindow, "Single screen left the shell");
+        SmokeSettings(true, Path.Combine(output, "drawing-settings.png"));
+        var drawingTask = drawingWindow.OneClickSmokeAsync(output);
+        SmokeSettings(false, Path.Combine(output, "generating-settings.png"));
+        object drawingReport = await drawingTask;
+        Require(new System.Windows.Interop.WindowInteropHelper(this).Handle == handle && Application.Current.Windows.Count == 1, "Single created another native window");
+        SmokeSettings(false, Path.Combine(output, "settings-light.png")); Capture(ShellPage, Path.Combine(output, "drawing-light.png"));
+        await drawingWindow.CloseAsync();
+        var room = await SmokeMultiplayerAsync();
+        SmokeSettings(true, Path.Combine(output, "multiplayer-settings.png"));
+        Capture(ShellPage, Path.Combine(output, "multiplayer-dark.png"));
+        await room.CloseAsync();
+        SmokeSettings(false, Path.Combine(output, "main-settings.png"));
+        Require(new System.Windows.Interop.WindowInteropHelper(this).Handle == handle && Application.Current.Windows.Count == 1, "Navigation replaced the window");
         bool exited = false; Closed += (_, _) => exited = true;
         ExitClicked(this, new()); await OnlineSmoke.Until(() => exited);
-        return new { status = "passed", mainMenu = true, navigation = true, resolution = true, savedVolumes = true, soundPlayback = false, exit = true, drawingReport };
-    }
-    internal static void Capture(FrameworkElement view, string destination)
+        return new { status = "passed", singleWindow = true, parameterTooltipsDelayMs = 1000, themeSaved = true, settingsEverywhere = true, navigation = true, resolution = true, savedVolumes = true, exit = true, drawingReport };
+    }    internal static void Capture(FrameworkElement view, string destination)
     {
         view.UpdateLayout();
         var bitmap = new RenderTargetBitmap((int)Math.Ceiling(view.ActualWidth), (int)Math.Ceiling(view.ActualHeight), 96, 96, PixelFormats.Pbgra32);
@@ -57,6 +82,7 @@ public partial class MenuWindow
 
 public partial class MainWindow
 {
+    internal bool SmokeInitialized => drawing is not null;
     internal async Task<object> OneClickSmokeAsync(string output)
     {
         if (drawing is null) throw new InvalidOperationException("Drawing was not initialized");

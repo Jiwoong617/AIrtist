@@ -62,6 +62,7 @@ internal static class OnlineLiveSmoke
         pulse.Start();
         try
         {
+            window.SmokeNickname("온라인 붓쟁이");
             window.SmokeLiveCreate();
             await Until(s => s.Phase == OnlinePhase.Connected && s.Room?.State == EosLobbyState.Joined, "자동 인증·방 생성");
             string? localId = worker.Snapshot.LocalId;
@@ -80,6 +81,13 @@ internal static class OnlineLiveSmoke
             window.SmokeCopyCode();
             Require(copiedCode == RoomCode.Display(RoomCode.FromLobbyId(createdId)!), "실제 방 코드 복사");
             Record("created-and-membership-verified");
+            await Until(s => s.Waiting is { Pending: false } waiting && waiting.Players.Single().Name == "온라인 붓쟁이", "실제 닉네임 속성 저장");
+            string waitingRevision = worker.Snapshot.Waiting!.Revision;
+            window.SmokeWaitingSettings(new(6.5f, 8, 42));
+            await Until(s => s.Waiting is { Pending: false } waiting && waiting.Revision != waitingRevision &&
+                waiting.Settings.RoundPolicy.FixedParameters == new GenerationParameters(6.5f, 8, 42), "실제 방 설정 속성 저장");
+            Require(worker.Snapshot.Waiting!.CanStart == false, "혼자 게임 시작 제한");
+            Record("waiting-nickname-and-room-settings-persisted");
             window.SmokeRender(Path.Combine(output, "online-room-created.png"));
 
             window.SmokeLiveLeave();

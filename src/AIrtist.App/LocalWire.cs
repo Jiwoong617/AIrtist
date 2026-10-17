@@ -23,6 +23,9 @@ internal sealed record LocalMessage(string Kind)
     public string[]? Prepared { get; init; }
     public RoundPacketKind PacketKind { get; init; }
     public byte[]? Bytes { get; init; }
+    public string? WaitingSettings { get; init; }
+    public Dictionary<string, string?>? WaitingMembers { get; init; }
+    public string? WaitingValue { get; init; }
 }
 
 // Bounded framing and queues; socket I/O never blocks the WPF or game worker threads.

@@ -64,10 +64,23 @@ internal sealed class LocalRoomConnection : IOnlineConnection
         {
             var state = left ? EosLobbyState.Idle : failed ? EosLobbyState.Failed : members.Length == 0 ? EosLobbyState.Joining : EosLobbyState.Joined;
             var listing = new EosLobbyListing(RoomCode.ToLobbyId(code), hostId, hash, host ? capacity : remoteCapacity, (host ? capacity : remoteCapacity) - members.Length);
-            return new(state, [], state == EosLobbyState.Joined ? new(listing, Array.AsReadOnly(members.Select(m => m.PlayerId).ToArray())) : null, revision, message);
+            return new(state, [], state == EosLobbyState.Joined ? new(listing, Array.AsReadOnly(members.Select(m => m.PlayerId).ToArray())) { WaitingSettings = waitingSettings, WaitingMembers = new Dictionary<string, string?>(waitingMembers.Where(p => members.Any(m => m.PlayerId == p.Key))) } : null, revision, message);
         }
     }
     private int remoteCapacity = 16;
+    private string? waitingSettings;
+    private Dictionary<string, string?> waitingMembers = new();
+    public bool SupportsWaiting => true;
+    public void WriteWaitingAttribute(bool owner, string value, Action<bool> complete)
+    {
+        if (stage != "waiting" || failed || left || value.Length > 256 || owner && !host) { complete(false); return; }
+        if (host)
+        {
+            if (owner) waitingSettings = value; else waitingMembers[localId] = value;
+            Broadcast(); complete(true);
+        }
+        else complete(upstream?.Send(new("waiting") { WaitingValue = value }) == true);
+    }
     public LobbyBootstrapSnapshot? Bootstrap => !ownPrepared ? null : new(failed ? LobbyBootstrapState.Failed : handed ? LobbyBootstrapState.HandedOff :
         stage == "run" ? LobbyBootstrapState.Ready : LobbyBootstrapState.Preparing, host ? scope : activeScope, prepared.Count, members.Length, "참가자 준비 중");
     public void Tick()
@@ -92,6 +105,7 @@ internal sealed class LocalRoomConnection : IOnlineConnection
             if (!peer.Wire.Closed) continue;
             peers.Remove(peer); peer.Wire.Dispose();
             if (peer.Member is null) continue;
+            waitingMembers.Remove(peer.Member.PlayerId);
             if (stage != "waiting") { Fail(); return; }
             members = members.Where(m => m.PlayerId != peer.Member.PlayerId).ToArray(); revision++; Broadcast();
         }
@@ -109,6 +123,8 @@ internal sealed class LocalRoomConnection : IOnlineConnection
         }
         switch (data.Kind)
         {
+            case "waiting" when stage == "waiting" && data.WaitingValue is { Length: > 0 and <= 256 }:
+                waitingMembers[peer.Member.PlayerId] = data.WaitingValue; Broadcast(); break;
             case "prepare" when data.Revision == revision && stage is "waiting" or "prepare":
                 BeginPreparation(); prepared.Add(peer.Member.PlayerId); AdvanceBarrier(); break;
             case "ack" when data.Scope == scope && data.Revision == revision && stage is "offer" or "run":
@@ -150,6 +166,9 @@ internal sealed class LocalRoomConnection : IOnlineConnection
         if (stage != "waiting" && (data.Revision != revision || !members.SequenceEqual(list) || data.Id != localId || data.Host != hostId || data.Scope != activeScope)) { Fail(); return; }
         if (stage == "run" && data.Stage != "run" || data.Stage is "offer" or "run" && (!ownPrepared || data.Prepared.Length != list.Length)) { Fail(); return; }
         localId = data.Id!; hostId = data.Host!; members = list; revision = data.Revision; stage = data.Stage!;
+        if (data.WaitingSettings?.Length > 256 || data.WaitingMembers?.Count > 16 ||
+            data.WaitingMembers?.Any(p => !list.Any(m => m.PlayerId == p.Key) || p.Value?.Length > 256) == true) { Fail(); return; }
+        waitingSettings = data.WaitingSettings; waitingMembers = data.WaitingMembers ?? new();
         remoteCapacity = data.Capacity; activeScope = data.Scope; prepared.Clear(); foreach (string p in data.Prepared) prepared.Add(p);
         message = "방 참가 완료";
         if (stage == "offer" && !upstream!.Send(new("ack") { Scope = activeScope, Revision = revision })) Fail();
@@ -176,7 +195,8 @@ internal sealed class LocalRoomConnection : IOnlineConnection
     {
         foreach (var peer in peers.Where(p => p.Member is not null))
             if (!peer.Wire.Send(new("state") { Code = code, Hash = hash, Id = peer.Member!.PlayerId, Host = hostId, Scope = scope,
-                Revision = revision, Capacity = capacity, Stage = stage, Members = members, Prepared = prepared.ToArray() })) peer.Wire.Dispose();
+                Revision = revision, Capacity = capacity, Stage = stage, Members = members, Prepared = prepared.ToArray(),
+                WaitingSettings = waitingSettings, WaitingMembers = waitingMembers.Where(p => members.Any(m => m.PlayerId == p.Key)).ToDictionary(p => p.Key, p => p.Value) })) peer.Wire.Dispose();
     }
     public PreparedLobbyConnection TakeConnection()
     {

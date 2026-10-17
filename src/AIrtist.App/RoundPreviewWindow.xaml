@@ -1,17 +1,16 @@
-<Window x:Class="AIrtist.App.RoundPreviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AIrtist.App"
-        Title="AIrtist · 경기 미리보기" Width="1180" Height="850" MinWidth="940" MinHeight="650" Background="{StaticResource PageBackground}" Foreground="{StaticResource Ink}" WindowStartupLocation="CenterOwner" FontFamily="Malgun Gothic" FontSize="14">
-  <Grid x:Name="Page" Background="{StaticResource PageBackground}" Margin="24">
+<local:GameScreen x:Class="AIrtist.App.RoundPreviewWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:AIrtist.App" Background="{DynamicResource PageBackground}" Foreground="{DynamicResource Ink}" FontFamily="Malgun Gothic" FontSize="14">
+  <Grid x:Name="Page" Background="{DynamicResource PageBackground}" Margin="24">
     <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
     <DockPanel Margin="0,0,0,16">
       <Button x:Name="OnlineRoomCode" DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed" Click="CopyOnlineCodeClicked" ToolTip="방 코드 복사"/>
       <Button x:Name="Reset" DockPanel.Dock="Right" VerticalAlignment="Top" Content="다시 설정" Click="ResetClicked" Margin="0,0,12,0" Style="{StaticResource SecondaryButton}" IsEnabled="False"/>
       <StackPanel>
       <StackPanel Orientation="Horizontal">
-        <TextBlock FontFamily="Segoe UI" FontSize="28" FontWeight="Bold"><Run Text="AI" Foreground="{StaticResource Accent}"/><Run Text="rtist"/></TextBlock>
-        <Border Width="1" Height="24" Background="{StaticResource CardBorder}" Margin="20,0"/>
+        <TextBlock FontFamily="Segoe UI" FontSize="28" FontWeight="Bold"><Run Text="AI" Foreground="{DynamicResource Accent}"/><Run Text="rtist"/></TextBlock>
+        <Border Width="1" Height="24" Background="{DynamicResource CardBorder}" Margin="20,0"/>
         <TextBlock x:Name="WindowHeading" Text="경기 미리보기" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center"/>
       </StackPanel>
-      <TextBlock x:Name="WindowHint" Text="한 PC에서 역할을 바꾸며 여러 라운드를 체험합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
+      <TextBlock x:Name="WindowHint" Text="한 PC에서 역할을 바꾸며 여러 라운드를 체험합니다." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,6,0,0"/>
       </StackPanel>
     </DockPanel>
     <WrapPanel Grid.Row="1" Margin="0,0,0,14" VerticalAlignment="Center">
@@ -33,12 +32,12 @@
     </WrapPanel>
     <Border Grid.Row="2" Style="{StaticResource Card}" CornerRadius="22" Padding="16" Margin="0,0,0,16">
       <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-        <StackPanel><TextBlock x:Name="MatchLabel" Foreground="{StaticResource Accent}" Margin="0,0,0,6"/>
+        <StackPanel><TextBlock x:Name="MatchLabel" Foreground="{DynamicResource Accent}" Margin="0,0,0,6"/>
           <TextBlock x:Name="Prompt" Text="설정을 정하고 대기방을 만드세요" FontSize="20" FontWeight="Bold"/>
-          <TextBlock x:Name="Meaning" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,5,16,0"/>
-          <TextBlock x:Name="ClockLabel" Foreground="{StaticResource Accent}" Margin="0,8,0,0"/>
+          <TextBlock x:Name="Meaning" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,5,16,0"/>
+          <TextBlock x:Name="ClockLabel" Foreground="{DynamicResource Accent}" Margin="0,8,0,0"/>
         </StackPanel>
-        <StackPanel x:Name="RolePanel" Grid.Column="1" Width="142"><TextBlock Text="현재 조작하는 역할" Foreground="{StaticResource Muted}" Margin="0,0,0,6"/>
+        <StackPanel x:Name="RolePanel" Grid.Column="1" Width="142"><TextBlock Text="현재 조작하는 역할" Foreground="{DynamicResource Muted}" Margin="0,0,0,6"/>
           <ComboBox x:Name="Viewer" DisplayMemberPath="Name" SelectionChanged="ViewerChanged" MinHeight="30"/>
         </StackPanel>
       </Grid>
@@ -46,11 +45,11 @@
     <Border x:Name="LobbyPanel" Grid.Row="3" Style="{StaticResource Card}" CornerRadius="22" Padding="24">
       <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
         <TextBlock Text="경기 전 대기방" FontSize="22" FontWeight="Bold"/>
-        <CheckBox x:Name="LockRoomParameters" Content="방 파라미터 설정" Foreground="{StaticResource Ink}" Margin="0,16,0,10" Checked="RoomParametersChanged" Unchecked="RoomParametersChanged"/><local:ParameterEditor x:Name="RoomParameters" Width="210" HorizontalAlignment="Left" Visibility="Collapsed"/><TextBlock x:Name="LobbySettingsLabel" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Margin="0,12,0,12"/>
+        <CheckBox x:Name="LockRoomParameters" Content="방 파라미터 설정" Foreground="{DynamicResource Ink}" Margin="0,16,0,10" Checked="RoomParametersChanged" Unchecked="RoomParametersChanged"/><local:ParameterEditor x:Name="RoomParameters" Width="210" HorizontalAlignment="Left" Visibility="Collapsed"/><TextBlock x:Name="LobbySettingsLabel" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" Margin="0,12,0,12"/>
         <TextBlock x:Name="LobbyMembersLabel" Text="인원과 시간을 정한 뒤 대기방을 만들어 주세요." FontSize="17" TextWrapping="Wrap" LineHeight="32"/>
         <Button x:Name="Ready" Content="준비 완료" Click="ReadyClicked" HorizontalAlignment="Left" Margin="0,20,0,16" IsEnabled="False"/>
-        <TextBlock x:Name="LobbyGuide" Text="현재 조작하는 역할을 바꾸어 각 참가자를 준비시켜 주세요. 모두 준비하면 방장이 경기를 시작합니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
-        <TextBlock x:Name="LobbyPolicy" Text="설정·참가자가 바뀌면 모두 다시 준비해야 합니다. 이 화면은 한 PC의 로컬 미리보기입니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
+        <TextBlock x:Name="LobbyGuide" Text="현재 조작하는 역할을 바꾸어 각 참가자를 준비시켜 주세요. 모두 준비하면 방장이 경기를 시작합니다." Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+        <TextBlock x:Name="LobbyPolicy" Text="설정·참가자가 바뀌면 모두 다시 준비해야 합니다. 이 화면은 한 PC의 로컬 미리보기입니다." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"/>
       </StackPanel></ScrollViewer>
     </Border>
     <Grid x:Name="MatchContent" Grid.Row="3" Visibility="Collapsed"><Grid.ColumnDefinitions><ColumnDefinition Width="220"/><ColumnDefinition Width="20"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -58,9 +57,9 @@
       <Border x:Name="ParameterPanel" Style="{StaticResource Card}" Padding="20" CornerRadius="22" Margin="0,0,0,12">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel>
           <TextBlock Text="생성 설정" FontSize="18" FontWeight="Bold" Margin="0,0,0,14"/>
-          <TextBlock x:Name="ParameterPolicyLabel" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <TextBlock x:Name="ParameterPolicyLabel" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" Margin="0,0,0,12"/>
           <local:ParameterEditor x:Name="Parameters"/>
-          <TextBlock x:Name="ProgressLabel" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,18,0,0"/>
+          <TextBlock x:Name="ProgressLabel" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,18,0,0"/>
         </StackPanel></ScrollViewer>
       </Border>
       <Border x:Name="PromptComposer" Grid.Row="1" Grid.ColumnSpan="3" Style="{StaticResource Card}" CornerRadius="22" Padding="16" Margin="0,8,0,0">
@@ -81,25 +80,25 @@
       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel>
           <TextBlock x:Name="GalleryTitle" Text="생성한 그림" FontSize="18" FontWeight="Bold" Margin="0,0,0,10"/>
-          <TextBlock x:Name="GalleryHint" Text="다른 역할로 바꾸어 모든 참가자의 그림을 만들어 주세요." Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <TextBlock x:Name="GalleryHint" Text="다른 역할로 바꾸어 모든 참가자의 그림을 만들어 주세요." Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,0,0,12"/>
           <Image x:Name="OwnImage" Height="260" Stretch="Uniform" Visibility="Collapsed"/>
           <ItemsControl x:Name="Cards">
             <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate><DataTemplate>
-              <Border Width="218" Padding="10" Margin="0,0,10,12" Style="{StaticResource Card}" Background="{StaticResource FieldSurface}" BorderBrush="{Binding Outline}" BorderThickness="2" CornerRadius="16">
+              <Border Width="218" Padding="10" Margin="0,0,10,12" Style="{StaticResource Card}" Background="{DynamicResource FieldSurface}" BorderBrush="{Binding Outline}" BorderThickness="2" CornerRadius="16">
                 <StackPanel><Image Source="{Binding Image}" Height="184" Stretch="Uniform"/>
-                  <TextBlock Text="{Binding Label}" Foreground="{StaticResource Ink}" TextWrapping="Wrap" Margin="0,9,0,4"/>
-                  <TextBlock Text="{Binding Votes}" Foreground="{StaticResource Accent}" Margin="0,0,0,8"/>
+                  <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Ink}" TextWrapping="Wrap" Margin="0,9,0,4"/>
+                  <TextBlock Text="{Binding Votes}" Foreground="{DynamicResource Accent}" Margin="0,0,0,8"/>
                   <Button Content="{Binding Action}" Tag="{Binding Id}" IsEnabled="{Binding CanVote}" Click="VoteClicked" Padding="10,8"/>
                 </StackPanel>
               </Border>
             </DataTemplate></ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock x:Name="ResultLabel" FontSize="18" Foreground="{StaticResource Accent}" TextWrapping="Wrap" Margin="0,4,0,12"/>
+          <TextBlock x:Name="ResultLabel" FontSize="18" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" Margin="0,4,0,12"/>
           <Border x:Name="HistoryPanel" Style="{StaticResource Card}" CornerRadius="10" Padding="12" Margin="0,0,0,12" Visibility="Collapsed">
             <StackPanel><TextBlock Text="라운드별 득표 기록" FontSize="17" FontWeight="Bold"/>
-              <TextBlock x:Name="HistoryLabel" TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,8,0,8"/>
-              <TextBlock Text="최종 우승 기준은 아직 정하지 않았습니다." Foreground="{StaticResource Muted}" TextWrapping="Wrap"/>
+              <TextBlock x:Name="HistoryLabel" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,8,0,8"/>
+              <TextBlock Text="최종 우승 기준은 아직 정하지 않았습니다." Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
               <Button x:Name="NextRound" Content="방장: 다음 라운드" Click="NextRoundClicked" HorizontalAlignment="Left" Margin="0,12,0,0" Visibility="Collapsed"/>
             </StackPanel>
           </Border>
@@ -108,6 +107,6 @@
       </ScrollViewer>
       </Border>
     </Grid>
-    <TextBlock Grid.Row="4" x:Name="StatusLabel" Text="작성·생성 시간은 임시 설정입니다. 생성은 이 PC에서 한 번에 하나씩 실행됩니다." TextWrapping="Wrap" Foreground="{StaticResource Muted}" Margin="0,16,0,0"/>
+    <TextBlock Grid.Row="4" x:Name="StatusLabel" Text="작성·생성 시간은 임시 설정입니다. 생성은 이 PC에서 한 번에 하나씩 실행됩니다." TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,16,0,0"/>
   </Grid>
-</Window>
+</local:GameScreen>

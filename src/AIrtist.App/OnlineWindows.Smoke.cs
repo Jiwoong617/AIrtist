@@ -18,10 +18,18 @@ public partial class MainWindow
 
 public partial class OnlineRoomWindow
 {
-    internal void SmokeLocalCreate(int rounds)
+    internal void SmokeLocalCreate(int rounds, int participants = 3)
     {
-        ChooseCreateClicked(this, new()); Capacity.SelectedItem = 3; RoomRounds.SelectedItem = rounds;
+        ChooseCreateClicked(this, new()); Capacity.SelectedItem = participants; RoomRounds.SelectedItem = rounds;
         RoomWriting.SelectedItem = 300; RoomGeneration.SelectedItem = 300; CreateClicked(this, new());
+    }
+    internal void SmokeNickname(string name) { CreateNickname.Text = JoinNickname.Text = name; }
+    internal void SmokeWaitingReady() { Refresh(); OnlineSmoke.Require(Prepare.IsEnabled, "Waiting action unavailable"); PrepareClicked(this, new()); }
+    internal void SmokeWaitingSettings(GenerationParameters? fixedValues)
+    {
+        Refresh(); WaitingLock.IsChecked = fixedValues is not null;
+        if (fixedValues is not null) WaitingParameters.Set(fixedValues);
+        ApplyRoomClicked(this, new());
     }
     internal void SmokeLocalPrepare() { Refresh(); OnlineSmoke.Require(Prepare.IsEnabled, "Local prepare unavailable"); PrepareClicked(this, new()); }
     internal void SmokeCreateWithParameters(GenerationParameters? fixedValues, string output)
@@ -83,13 +91,13 @@ public partial class RoundPreviewWindow
     }
     internal void OnlineSmokeStart() { Refresh(); OnlineSmoke.Require(Start.IsEnabled, "Host start not enabled"); StartClicked(this, new()); }
     internal void OnlineSmokeTranslate() { Refresh(); OnlineSmoke.Require(Translate.IsEnabled && string.IsNullOrEmpty(English.Text), "New round UI not ready"); Description.Text = "둥글고 붉은 물체"; TranslateClicked(this, new()); }
-    internal void OnlineSmokeDraw(int index)
+    internal void OnlineSmokeDraw(int index, string description = "둥글고 붉은 물체")
     {
         Refresh(); OnlineSmoke.Require(Translate.IsEnabled && English.Visibility == Visibility.Collapsed && Confirm.Visibility == Visibility.Collapsed, "One-click UI not ready");
         bool locked = CurrentRound!.Submission.FixedParameters is not null;
         OnlineSmoke.Require(Parameters.IsEnabled == !locked, "Room lock missing");
         if (!locked) Parameters.Set(new(5f + index * .5f, 8 + index, 200 + index));
-        Description.Text = "둥글고 붉은 물체"; DrawClicked(this, new());
+        Description.Text = description; DrawClicked(this, new());
     }
     internal void OnlineSmokeConfirm(int index = 0)
     {
@@ -107,5 +115,10 @@ public partial class RoundPreviewWindow
         VoteClicked(new Button { Tag = id }, new());
     }
     internal void OnlineSmokeNext() { Refresh(); NextRoundClicked(this, new()); }
-    internal void OnlineSmokeRender(string path, bool small = false) { Refresh(); Render(path, small ? 892 : 1116, small ? 602 : 764, small ? 144 : 96); }
+    internal void OnlineSmokeRender(string path, bool small = false)
+    {
+        Refresh();
+        GalleryAccessibilityChecks.Verify(Cards, item => ((Card)item).Label);
+        Render(path, small ? 892 : 1116, small ? 602 : 764, small ? 144 : 96);
+    }
 }

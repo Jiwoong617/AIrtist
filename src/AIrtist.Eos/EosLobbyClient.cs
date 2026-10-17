@@ -143,6 +143,12 @@ public sealed class EosLobbyClient : IDisposable
     }
 
     internal void WriteConnectionAttribute(bool owner, string value, Action<bool> completed)
+        => WriteAttribute(owner, value, completed, false);
+
+    public void WriteWaitingAttribute(bool owner, string value, Action<bool> completed)
+        => WriteAttribute(owner, value, completed, true);
+
+    private void WriteAttribute(bool owner, string value, Action<bool> completed, bool waiting)
     {
         Require(EosLobbyState.Joined);
         if (attributePending || value.Length is < 1 or > LobbyConnectionBootstrap.MaxAttributeChars ||
@@ -150,14 +156,16 @@ public sealed class EosLobbyClient : IDisposable
             throw new InvalidOperationException("현재 참가자의 연결 정보만 순서대로 저장하세요.");
         attributePending = true;
         string id = joinedId!; long revision = Snapshot.MembershipRevision;
-        api.WriteConnectionAttribute(id, owner, value, success =>
+        void Complete(bool success)
         {
             if (disposed) return;
             attributePending = false;
             bool current = Snapshot.State == EosLobbyState.Joined && joinedId == id && Snapshot.MembershipRevision == revision;
             if (current) refreshPending = true;
             completed(success && current);
-        });
+        }
+        if (waiting) api.WriteWaitingAttribute(id, owner, value, Complete);
+        else api.WriteConnectionAttribute(id, owner, value, Complete);
     }
 
     // Cancellation is terminal for this client: don't start another operation while an old native
@@ -188,10 +196,13 @@ public sealed class EosLobbyClient : IDisposable
             !value.Members.Contains(localId) || !value.Members.Contains(value.Lobby.OwnerId)) return false;
         if (value.ConnectionProposal?.Length > LobbyConnectionBootstrap.MaxAttributeChars || value.MemberConnectionData is null ||
             value.MemberConnectionData.Count > 16 || value.MemberConnectionData.Any(p => !value.Members.Contains(p.Key) || p.Value?.Length > LobbyConnectionBootstrap.MaxAttributeChars)) return false;
+        if (value.WaitingSettings?.Length > 256 || value.WaitingMembers is null || value.WaitingMembers.Count > 16 ||
+            value.WaitingMembers.Any(p => !value.Members.Contains(p.Key) || p.Value?.Length > 256)) return false;
         var copy = value with
         {
             Members = Array.AsReadOnly(value.Members.Order(StringComparer.Ordinal).ToArray()),
-            MemberConnectionData = new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(value.MemberConnectionData, StringComparer.Ordinal))
+            MemberConnectionData = new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(value.MemberConnectionData, StringComparer.Ordinal)),
+            WaitingMembers = new ReadOnlyDictionary<string, string?>(new Dictionary<string, string?>(value.WaitingMembers, StringComparer.Ordinal))
         };
         var before = Snapshot.Membership;
         bool changed = before is null || before.Lobby.OwnerId != copy.Lobby.OwnerId || !before.Members.SequenceEqual(copy.Members);

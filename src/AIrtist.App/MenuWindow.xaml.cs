@@ -12,54 +12,57 @@ public partial class MenuWindow : Window
     private GameSettings settings;
     private OnlineSessionWorker? onlineWorker;
     private bool prepared, busy, closing, stopped;
-    private Window? child;
+    private GameScreen? child;
 
-    internal MenuWindow(RuntimeAssets assets, string? settingsPath = null)
+    internal MenuWindow(RuntimeAssets assets, string? settingsPath = null, IDrawingAi? ai = null, OnlineSessionWorker? worker = null)
     {
         InitializeComponent(); this.assets = assets; this.settingsPath = settingsPath;
-        ai = new SerializedDrawingAi(new LocalDrawingAi(assets));
-        settings = GameSettings.Load(settingsPath);
+        this.ai = ai ?? new SerializedDrawingAi(new LocalDrawingAi(assets)); onlineWorker = worker;
+        settings = GameSettings.Load(settingsPath); ThemeManager.Apply(settings.DarkMode);
         Resolution.ItemsSource = GameSettings.Sizes.Select(s => $"{s.Width} × {s.Height}").ToArray();
         settings.Apply(this);
         Closing += async (_, e) =>
         {
             if (stopped) return;
-            if (closing) { e.Cancel = true; return; }
-            if (busy || child is not null) { e.Cancel = true; return; }
-            closing = true;
-            if (onlineWorker is null) return;
-            e.Cancel = true; IsEnabled = false;
-            await onlineWorker.StopAsync(); stopped = true;
-            _ = Dispatcher.BeginInvoke(new Action(Close));
+            e.Cancel = true;
+            if (closing) return;
+            closing = true; IsEnabled = false;
+            // Wait for initialization to finish before disposing its screen.
+            while (busy) await Task.Delay(25);
+            if (child is not null) await child.CloseAsync();
+            if (onlineWorker is not null) await onlineWorker.StopAsync();
+            stopped = true; _ = Dispatcher.BeginInvoke(new Action(Close));
         };
     }
     private async Task<bool> PrepareAsync()
     {
         if (busy || closing) return false;
-        busy = true; Single.IsEnabled = Multi.IsEnabled = Settings.IsEnabled = Exit.IsEnabled = false;
+        busy = true; Single.IsEnabled = Multi.IsEnabled = false;
         MenuStatus.Text = "그림 도구를 준비하고 있어요…";
         try
         {
             if (!prepared) await Task.Run(() => assets.Verify(CancellationToken.None));
-            prepared = true; MenuStatus.Text = ""; return true;
+            prepared = true; MenuStatus.Text = ""; return !closing;
         }
         catch (Exception) { MenuStatus.Text = "모델 파일을 확인할 수 없습니다. 앱 폴더 전체가 있는지 확인해 주세요."; return false; }
-        finally { busy = false; Single.IsEnabled = Multi.IsEnabled = Settings.IsEnabled = Exit.IsEnabled = true; }
+        finally { busy = false; Single.IsEnabled = Multi.IsEnabled = true; }
     }
-    private void ShowScreen(Window screen)
+    private void ShowScreen(GameScreen screen)
     {
-        child = screen; screen.Owner = this; settings.Apply(screen);
-        try { Hide(); screen.ShowDialog(); }
-        finally { child = null; if (!closing) { Show(); Activate(); } }
+        child = screen; ScreenHost.Content = screen; MenuPage.Visibility = Visibility.Collapsed;
+        screen.Closed += (_, _) =>
+        {
+            if (child != screen) return;
+            ScreenHost.Content = null; child = null;
+            if (!closing) { MenuPage.Visibility = Visibility.Visible; Single.Focus(); }
+        };
     }
     private async void SingleClicked(object sender, RoutedEventArgs e)
     {
         if (!await PrepareAsync()) return;
-        var screen = new MainWindow(assets, ai);
-        busy = true; IsEnabled = false;
+        var screen = new MainWindow(assets, ai); ShowScreen(screen); busy = true;
         try { await screen.InitializeAsync(); }
-        finally { busy = false; IsEnabled = true; }
-        ShowScreen(screen);
+        finally { busy = false; }
     }
     private async void MultiClicked(object sender, RoutedEventArgs e)
     {
@@ -76,19 +79,31 @@ public partial class MenuWindow : Window
     }
     private void SettingsClicked(object sender, RoutedEventArgs e)
     {
+        if (SettingsOverlay.Visibility == Visibility.Visible) { BackClicked(sender, e); return; }
         Resolution.SelectedIndex = Array.IndexOf(GameSettings.Sizes, (settings.Width, settings.Height));
-        Bgm.Value = settings.Bgm; Sfx.Value = settings.Sfx;
-        MainMenu.Visibility = Visibility.Collapsed; SettingsPanel.Visibility = Visibility.Visible; MenuStatus.Text = "";
+        Bgm.Value = settings.Bgm; Sfx.Value = settings.Sfx; ThemeChoice.SelectedIndex = settings.DarkMode ? 1 : 0;
+        SettingsOverlay.Visibility = Visibility.Visible; ScreenHost.IsEnabled = MenuPage.IsEnabled = false;
+        MenuStatus.Text = ""; ThemeChoice.Focus();
     }
     private void ApplyClicked(object sender, RoutedEventArgs e)
     {
         if (Resolution.SelectedIndex < 0) return;
         var size = GameSettings.Sizes[Resolution.SelectedIndex];
-        var next = new GameSettings(size.Width, size.Height, (int)Bgm.Value, (int)Sfx.Value);
-        try { next.Save(settingsPath); settings = next; settings.Apply(this); MenuStatus.Text = "설정을 저장했습니다."; }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { MenuStatus.Text = "설정을 저장하지 못했습니다. 저장 폴더 권한을 확인해 주세요."; }
+        var next = new GameSettings(size.Width, size.Height, (int)Bgm.Value, (int)Sfx.Value, ThemeChoice.SelectedIndex == 1);
+        try
+        {
+            next.Save(settingsPath);
+            bool resize = next.Width != settings.Width || next.Height != settings.Height;
+            settings = next;
+            if (resize) settings.Apply(this);
+            ThemeManager.Apply(settings.DarkMode); SettingsStatus.Text = "설정을 저장했습니다.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { SettingsStatus.Text = "설정을 저장하지 못했습니다."; }
     }
     private void BackClicked(object sender, RoutedEventArgs e)
-    { SettingsPanel.Visibility = Visibility.Collapsed; MainMenu.Visibility = Visibility.Visible; MenuStatus.Text = ""; Settings.Focus(); }
+    {
+        SettingsOverlay.Visibility = Visibility.Collapsed; ScreenHost.IsEnabled = MenuPage.IsEnabled = true;
+        SettingsStatus.Text = ""; Settings.Focus();
+    }
     private void ExitClicked(object sender, RoutedEventArgs e) => Close();
 }

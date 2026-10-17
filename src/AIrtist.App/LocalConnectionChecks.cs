@@ -78,6 +78,7 @@ internal static class LocalConnectionChecks
             Check(!ht.IsConnected(guestReady.LocalId) && LocalRoomAddress.Find(host.Code) is null, "Departure left active room");
         }
         await SpoofedSender();
+        await WaitingRules();
         using var factory = new RemoteFactory();
         using var auto = new AutomaticRoomConnection(factory, "", "검사", Hash);
         auto.Create(3); auto.Tick();
@@ -86,6 +87,91 @@ internal static class LocalConnectionChecks
         factory.Remote.HasGuest = true; auto.Tick();
         Check(auto.Authentication.PlayerId == RemoteConnection.Owner && LocalRoomAddress.Find(code) is null, "Online-first room did not select EOS");
         auto.Prepare(); Check(factory.Remote.Prepared, "Online preparation was not delegated");
+    }
+    private static async Task WaitingRules()
+    {
+        foreach (string? name in new string?[] { null, "", "   ", new('가', 17), "별\n빛", "별\u200B빛" })
+        {
+            bool rejected = false;
+            try { PlayerNickname.Normalize(name); } catch (ArgumentException) { rejected = true; }
+            Check(rejected, "Invalid nickname accepted");
+        }
+        Check(PlayerNickname.Normalize("  붓쟁이  ") == "붓쟁이", "Nickname whitespace not normalized");
+        using var host = LocalRoomConnection.Host(Hash, 3, () => true);
+        var address = LocalRoomAddress.Find(host.Code)!;
+        var hc = new WaitingRoomCoordinator(host, "방장", MultiplayerMatchSettings.Default);
+        var active = new List<(IOnlineConnection Connection, WaitingRoomCoordinator Waiting)> { (host, hc) };
+        async Task Sync(Func<bool> done)
+        {
+            var timeout = Stopwatch.StartNew();
+            do
+            {
+                foreach (var item in active) item.Connection.Tick();
+                foreach (var item in active) item.Waiting.Tick();
+                if (done()) return;
+                if (timeout.Elapsed.TotalSeconds > 8) throw new TimeoutException("Waiting rules check");
+                await Task.Delay(10);
+            } while (true);
+        }
+        await Sync(() => hc.Snapshot is { Pending: false });
+        Check(!hc.Snapshot!.CanStart, "Host started alone");
+        using var guest = new LocalRoomConnection(Hash, address);
+        var guestView = new DelayedWaitingView(guest);
+        var gc = new WaitingRoomCoordinator(guestView, "참가자", MultiplayerMatchSettings.Default);
+        active.Add((guest, gc));
+        await Sync(() => hc.Snapshot?.Players.Length == 2 && gc.Snapshot is { Pending: false });
+        Check(!hc.Snapshot!.CanStart, "Unready guest allowed start");
+        bool denied = false;
+        try { gc.ChangeSettings(MultiplayerMatchSettings.Default); } catch (InvalidOperationException) { denied = true; }
+        Check(denied, "Guest changed room settings"); denied = false;
+        try { gc.Start(); } catch (InvalidOperationException) { denied = true; }
+        Check(denied, "Guest started match");
+        gc.SetReady(true); await Sync(() => hc.Snapshot?.CanStart == true && gc.Snapshot?.Pending == false);
+        using var third = new LocalRoomConnection(Hash, address);
+        var tc = new WaitingRoomCoordinator(third, "세 번째", MultiplayerMatchSettings.Default);
+        active.Add((third, tc));
+        string old = hc.Snapshot!.Revision;
+        await Sync(() => hc.Snapshot?.Players.Length == 3 && gc.Snapshot?.Revision != old && tc.Snapshot is { Pending: false });
+        Check(!hc.Snapshot!.CanStart && gc.Snapshot!.Players.All(p => p.Host || !p.Ready), "Join retained stale readiness");
+        third.Leave(); active.RemoveAt(2); old = hc.Snapshot.Revision;
+        await Sync(() => hc.Snapshot?.Players.Length == 2 && hc.Snapshot.Revision != old && gc.Snapshot?.Revision == hc.Snapshot.Revision && !gc.Snapshot.Pending);
+        Check(!hc.Snapshot!.CanStart, "Departure skipped readiness");
+        gc.SetReady(true); await Sync(() => hc.Snapshot?.CanStart == true && gc.Snapshot?.Pending == false);
+        gc.SetReady(false); await Sync(() => hc.Snapshot?.CanStart == false && gc.Snapshot?.Pending == false);
+        gc.SetReady(true); await Sync(() => hc.Snapshot?.CanStart == true && gc.Snapshot?.Pending == false);
+        guestView.MaskHost = true;
+        hc.Start(); await Sync(() => hc.BeginConnection && gc.Snapshot?.Starting == true);
+        Check(!gc.BeginConnection, "Start skipped missing member data");
+        guestView.MaskHost = false;
+        await Sync(() => gc.BeginConnection);
+        Check(hc.Names!.OrderBy(p => p.Key).SequenceEqual(gc.Names!.OrderBy(p => p.Key)), "Start names differ");
+    }
+    // Simulates EOS publishing Start before one peer's member attribute reaches us.
+    private sealed class DelayedWaitingView(IOnlineConnection inner) : IOnlineConnection
+    {
+        public bool MaskHost;
+        public EosConnectionSnapshot Authentication => inner.Authentication;
+        public EosLobbySnapshot? Lobby
+        {
+            get
+            {
+                var view = inner.Lobby;
+                if (!MaskHost || view?.Membership is not { } room) return view;
+                return view with { Membership = room with { WaitingMembers = room.WaitingMembers.ToDictionary(p => p.Key, p => p.Key == room.Lobby.OwnerId ? null : p.Value) } };
+            }
+        }
+        public LobbyBootstrapSnapshot? Bootstrap => inner.Bootstrap;
+        public bool SupportsWaiting => true;
+        public void WriteWaitingAttribute(bool owner, string value, Action<bool> complete) => inner.WriteWaitingAttribute(owner, value, complete);
+        public void Tick() => inner.Tick();
+        public void Search() => inner.Search();
+        public void Create(int capacity, string? lobbyId = null) => inner.Create(capacity, lobbyId);
+        public void Join(string id) => inner.Join(id);
+        public void JoinByCode(string code) => inner.JoinByCode(code);
+        public void Prepare() => inner.Prepare();
+        public PreparedLobbyConnection TakeConnection() => inner.TakeConnection();
+        public void Leave() => inner.Leave();
+        public void Dispose() { }
     }
     private static async Task SpoofedSender()
     {

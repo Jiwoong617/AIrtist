@@ -36,6 +36,13 @@ internal sealed class AutomaticRoomConnection(IOnlineConnectionFactory factory, 
         }
     }
     public LobbyBootstrapSnapshot? Bootstrap => mode == Mode.Remote ? remote?.Bootstrap : local?.Bootstrap;
+    public bool SupportsWaiting => true;
+    public void WriteWaitingAttribute(bool owner, string value, Action<bool> complete)
+    {
+        var target = mode == Mode.Remote ? remote : local;
+        if (target is null) { complete(false); return; }
+        target.WriteWaitingAttribute(owner, value, complete);
+    }
     public void Create(int capacity, string? lobbyId = null)
     {
         RequireIdle();

@@ -218,7 +218,18 @@ internal static class ConnectionBootstrapChecks
         }
         using (var w = new World())
         {
-            Check(Task.Run(() => { try { w.Bootstraps[0].Tick(); return false; } catch (InvalidOperationException) { return true; } }).GetAwaiter().GetResult(), "스레드 제한 실패");
+            // Task.Run may inline while a thread-pool caller synchronously waits.
+            // A dedicated thread guarantees this exercises the wrong-thread boundary.
+            bool rejected = false;
+            Exception? unexpected = null;
+            var otherThread = new Thread(() =>
+            {
+                try { w.Bootstraps[0].Tick(); }
+                catch (InvalidOperationException) { rejected = true; }
+                catch (Exception ex) { unexpected = ex; }
+            });
+            otherThread.Start(); otherThread.Join();
+            Check(rejected && unexpected is null, "스레드 제한 실패");
             w.Step(); foreach (var b in w.Bootstraps) { b.Dispose(); b.Dispose(); } w.Step(30);
             Check(w.Bootstraps.All(b => b.Snapshot.State == LobbyBootstrapState.Disposed), "Dispose 뒤 늦은 저장 응답 반영");
         }
