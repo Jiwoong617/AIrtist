@@ -115,6 +115,17 @@ public partial class RoundPreviewWindow
         VoteClicked(new Button { Tag = id }, new());
     }
     internal void OnlineSmokeNext() { Refresh(); NextRoundClicked(this, new()); }
+    internal void OnlineSmokeFinalButton(bool host)
+    {
+        Refresh();
+        OnlineSmoke.Require((ShowFinal.Visibility == Visibility.Visible) == host, "Final button host visibility");
+        if (host) OnlineSmoke.Require(ShowFinal.IsEnabled, "Final button unavailable after confirmations");
+        OnlineSmoke.Require(FinalResults.Visibility == Visibility.Collapsed, "Final screen opened without host click");
+    }
+    internal void OnlineSmokeShowFinal() { Refresh(); ShowFinal.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); }
+    internal bool OnlineSmokeFinalVisible { get { Refresh(); return FinalResults.Visibility == Visibility.Visible && RoundPage.Visibility == Visibility.Collapsed; } }
+    internal bool OnlineSmokeFinalCanLeave => FinalResults.SmokeCanLeave;
+    internal void OnlineSmokeFinalLeave() => FinalResults.SmokeLeave();
     internal void OnlineSmokeRender(string path, bool small = false)
     {
         Refresh();

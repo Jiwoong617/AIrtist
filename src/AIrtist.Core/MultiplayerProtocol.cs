@@ -8,7 +8,7 @@ namespace AIrtist.Core;
 public sealed record MultiplayerCompatibility(int ProtocolVersion, string RulesVersion, string AssetsSha256, string WordsSha256)
 {
     public const int CurrentProtocol = 1;
-    public const string CurrentRules = "multiplayer-waiting-v8";
+    public const string CurrentRules = "multiplayer-results-v9";
 
     // Call only after RuntimeAssets.Verify; a manifest fingerprint alone does not verify models.
     public static MultiplayerCompatibility FromVerifiedAssets(RuntimeAssets assets, string wordsPath)

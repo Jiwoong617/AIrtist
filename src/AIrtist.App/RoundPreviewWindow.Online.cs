@@ -33,7 +33,7 @@ public partial class RoundPreviewWindow
     {
         if (onlineRoomCode is null) return;
         try { Clipboard.SetText(RoomCode.Display(onlineRoomCode)); commandError = "방 코드 복사 완료"; }
-        catch (System.Runtime.InteropServices.ExternalException) { commandError = "방 코드 복사에 실패했습니다."; }
+        catch (System.Runtime.InteropServices.ExternalException) { commandError = "방 코드 복사에 실패했습니다."; Audio?.Cue(SoundCue.ErrorNotice); }
         Refresh();
     }
 

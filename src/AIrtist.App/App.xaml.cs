@@ -16,6 +16,34 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        if (e.Args.FirstOrDefault() == "--results-smoke")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);
+            try
+            {
+                var report = await FinalResultsView.Smoke(output);
+                File.WriteAllText(Path.Combine(output, "results-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
+                File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}"); Shutdown(0);
+            }
+            catch (Exception ex)
+            { File.WriteAllText(Path.Combine(output, "status.json"), JsonSerializer.Serialize(new { status = "failed", error = ex.ToString() }, RuntimeAssets.Json)); Shutdown(1); }
+            return;
+        }
+        if (e.Args.FirstOrDefault() == "--audio-smoke")
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);
+            try
+            {
+                var report = await AudioSmoke.Run(output);
+                File.WriteAllText(Path.Combine(output, "audio-smoke.json"), JsonSerializer.Serialize(report, RuntimeAssets.Json));
+                File.WriteAllText(Path.Combine(output, "status.json"), "{\"status\":\"passed\"}"); Shutdown(0);
+            }
+            catch (Exception ex)
+            { File.WriteAllText(Path.Combine(output, "status.json"), JsonSerializer.Serialize(new { status = "failed", error = ex.ToString() }, RuntimeAssets.Json)); Shutdown(1); }
+            return;
+        }
         if (e.Args.FirstOrDefault() == "--voting-smoke")
         {
             string output = Path.GetFullPath(e.Args[1]); Directory.CreateDirectory(output);

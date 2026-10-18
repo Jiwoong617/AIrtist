@@ -5,7 +5,10 @@ public sealed record RoundRuntimeContext(Guid MatchId, Guid RoundId, long Submis
 public enum RoundAiPhase { Editing, Translating, Reviewing, WaitingApproval, Generating, Submitted }
 public sealed record RoundDraft(long Id, string Description, string Translation);
 public sealed record RoundRuntimeSnapshot(string LocalId, bool IsHost, SubmissionClientSnapshot Submission,
-    RoundClientSnapshot Gallery, RoundAiPhase AiPhase, bool Busy, RoundDraft? Draft, string Message, byte[]? OwnPng);
+    RoundClientSnapshot Gallery, RoundAiPhase AiPhase, bool Busy, RoundDraft? Draft, string Message, byte[]? OwnPng)
+{
+    public long FailureRevision { get; init; }
+}
 
 // One local participant in one round. Tick is the single packet/timer/state loop;
 // public commands/snapshots are serialized against it. AI runs off that loop and
@@ -28,7 +31,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
     private byte[]? pendingCommand, ownPng;
     private bool imageQueued, readyQueued, disconnected, disposed;
     private RoundDraft? draft;
-    private long draftId, progressRevision;
+    private long draftId, progressRevision, failureRevision;
     private PlayerRoundProgress[] lastProgress = [];
     private MultiplayerRoundPhase? lastHostPhase;
     private RoundAiPhase aiPhase;
@@ -51,6 +54,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         public readonly TimeSpan Budget = budget;
         public readonly CancellationTokenSource Cancel = new();
         public Task<Outcome> Work = null!;
+        public bool UserCancelled;
     }
     private sealed record Outcome(string? Translation, byte[]? Png, Exception? Error);
 
@@ -136,7 +140,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
     {
         lock (sync)
         {
-            CheckAlive(); if (job is null) return; job.Cancel.Cancel(); message = "작업을 취소하고 정리하고 있어요";
+            CheckAlive(); if (job is null) return; job.UserCancelled = true; job.Cancel.Cancel(); message = "작업을 취소하고 정리하고 있어요";
             if (job.Generating) ReportFailure();
         }
     }
@@ -263,6 +267,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
         bool cancelled = finished.Cancel.IsCancellationRequested; job = null; finished.Cancel.Dispose();
         if (cancelled || outcome.Error is not null || disconnected)
         {
+            if (!finished.UserCancelled && !disconnected) failureRevision++;
             autoParameters = null;
             message = cancelled ? "작업이 취소되었거나 제한 시간이 지났습니다." : "AI 작업에 실패했습니다. GPU 상태와 입력을 확인해 주세요.";
             if (finished.Generating) { ReportFailure(); aiPhase = RoundAiPhase.Submitted; }
@@ -279,6 +284,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
                 try { Confirm(draft.Id, draft.Translation, parameters); }
                 catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
                 {
+                    failureRevision++;
                     draft = null; aiPhase = RoundAiPhase.Editing;
                     message = "묘사를 제출하지 못했습니다. 내용을 고쳐 다시 그려 주세요. " + ex.Message;
                 }
@@ -295,7 +301,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
                 aiPhase = RoundAiPhase.Submitted; message = "그림을 방장에게 전달하고 있어요";
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-            { ReportFailure(); message = "그림을 제출하지 못했습니다. 다른 참가자를 기다립니다."; aiPhase = RoundAiPhase.Submitted; }
+            { failureRevision++; ReportFailure(); message = "그림을 제출하지 못했습니다. 다른 참가자를 기다립니다."; aiPhase = RoundAiPhase.Submitted; }
         }
     }
     private void ReportFailure()
@@ -311,7 +317,7 @@ public sealed class MultiplayerRoundRuntime : IDisposable
     }
     public RoundRuntimeSnapshot Snapshot()
     {
-        lock (sync) { CheckAlive(); return new(context.LocalId, host is not null, client.Snapshot(), client.Gallery.Snapshot(), aiPhase, job is not null, draft, message, ownPng); }
+        lock (sync) { CheckAlive(); return new(context.LocalId, host is not null, client.Snapshot(), client.Gallery.Snapshot(), aiPhase, job is not null, draft, message, ownPng) { FailureRevision = failureRevision }; }
     }
     private void CheckDraft(long id)
     {

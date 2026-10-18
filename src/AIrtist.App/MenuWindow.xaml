@@ -65,10 +65,9 @@
           <ComboBox x:Name="Resolution" FontSize="18" Padding="12" AutomationProperties.Name="창 해상도"/>
           <TextBlock Text="화면보다 큰 창은 화면에 맞게 조정됩니다." Foreground="{DynamicResource Muted}" Margin="0,8,0,24"/>
           <DockPanel><TextBlock Text="BGM" FontSize="17"/><TextBlock Text="{Binding ElementName=Bgm, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Right" FontSize="17"/></DockPanel>
-          <Slider x:Name="Bgm" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,12,0,24" AutomationProperties.Name="BGM 음량"/>
+          <Slider x:Name="Bgm" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,12,0,24" AutomationProperties.Name="BGM 음량" ValueChanged="VolumeChanged"/>
           <DockPanel><TextBlock Text="SFX" FontSize="17"/><TextBlock Text="{Binding ElementName=Sfx, Path=Value, StringFormat={}{0:0}%}" HorizontalAlignment="Right" FontSize="17"/></DockPanel>
-          <Slider x:Name="Sfx" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,12,0,12" AutomationProperties.Name="SFX 음량"/>
-          <TextBlock Text="사운드는 추후 추가됩니다. 지금은 음량 설정만 저장합니다." Foreground="{DynamicResource Muted}" TextWrapping="Wrap"/>
+          <Slider x:Name="Sfx" Minimum="0" Maximum="100" TickFrequency="1" IsSnapToTickEnabled="True" Margin="0,12,0,12" AutomationProperties.Name="SFX 음량" ValueChanged="VolumeChanged"/>
 <TextBlock x:Name="SettingsStatus" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="0,8,0,0"/>
           <UniformGrid Columns="2" Margin="0,28,0,0">
             <Button x:Name="Apply" Style="{StaticResource MenuButton}" Content="적용" FontSize="18" Click="ApplyClicked" Margin="0,0,7,0"/>

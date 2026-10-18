@@ -104,27 +104,60 @@ internal static class LocalProcessSmoke
                 galleryHashes.Add(artworks.OrderBy(a => a.OwnerId, StringComparer.Ordinal).Select(a => a.Sha256).ToArray());
                 foreach (var art in artworks) File.WriteAllBytes(Path.Combine(output, $"round-{round}-{art.OwnerId}.png"), art.CopyPng());
                 game.OnlineSmokeRender(Path.Combine(output, $"gallery-{round}.png"));
+                await Task.Delay(150); // Let the audio thread consume the newly displayed gallery transition.
                 int self = Array.IndexOf(roster, id); int[] targets = [1, 0, 1];
                 game.OnlineSmokeVote(roster[targets[self]]);
                 await Until(() => worker.Snapshot.Match!.Results.Count == round, "votes-" + round);
                 OnlineSmoke.Require(worker.Snapshot.Match!.Results[round - 1].Result.Tallies.Select(t => t.Votes).Order().SequenceEqual(expectedVotes), "Vote tallies differ");
+                game.OnlineSmokeRender(Path.Combine(output, $"result-{round}.png"));
+                await Task.Delay(200);
                 if (index == 0 && round < rounds)
                 { await Until(() => worker.Snapshot.Match!.CanAdvance, "advance"); game.OnlineSmokeNext(); }
             }
             await Until(() => worker.Snapshot.Match?.Phase == MultiplayerMatchPhase.Completed, "complete");
+            foreach (string cue in new[] { "round_start", "gallery_open", "round_result" })
+                OnlineSmoke.Require(shell.AudioCounts.GetValueOrDefault(cue) == rounds, $"Audio {cue} expected {rounds}: {shell.AudioCounts.GetValueOrDefault(cue)}");
+            OnlineSmoke.Require(shell.AudioMusicChanges == 2, "Settings/rounds restarted the music");
             game.OnlineSmokeRender(Path.Combine(output, "result.png"));
+            game.OnlineSmokeFinalButton(index == 0);
             File.WriteAllText(Path.Combine(output, "complete.txt"), "complete");
             await Until(() => Enumerable.Range(0, participants).All(i => File.Exists(Path.Combine(root, "player-" + i, "complete.txt"))), "all-complete");
-            if (index == 0) await worker.DisconnectAsync();
+            if (index == 0) game.OnlineSmokeShowFinal();
+            await Until(() => game.OnlineSmokeFinalVisible, "final-screen");
+            await Until(() => game.OnlineSmokeFinalCanLeave, "final-delivered");
+            var final = worker.Snapshot.Match!.FinalResults!;
+            OnlineSmoke.Require(final.Winners.Count == (participants == 2 ? 2 : 1) &&
+                final.Winners.All(p => p.Votes == expectedVotes.Max() * rounds) && final.TotalVotes == participants * rounds,
+                "Final cumulative winner/tie differs");
+            shell.SmokeSettings(index != 1, Path.Combine(output, "final-settings.png"));
+            MenuWindow.Capture(shell, Path.Combine(output, "final-results.png"));
+            File.WriteAllText(Path.Combine(output, "final.json"), JsonSerializer.Serialize(final, RuntimeAssets.Json));
+            File.WriteAllText(Path.Combine(output, "final-shown.txt"), "shown");
+            await Until(() => Enumerable.Range(0, participants).All(i => File.Exists(Path.Combine(root, "player-" + i, "final-shown.txt"))), "all-final-shown");
+            if (index == 0)
+            {
+                await Until(() => game.OnlineSmokeFinalCanLeave, "final-delivered");
+                game.OnlineSmokeFinalLeave();
+                await Until(() => shell.SmokeAtMainMenu, "host-main-menu");
+            }
             else
             {
                 await Until(() => worker.Snapshot.Phase == OnlinePhase.Failed, "host-left", allowFailure: true);
-                OnlineSmoke.Require(worker.Snapshot.Match?.Results.Count == rounds, "Disconnect lost results");
+                await Task.Delay(550);
+                OnlineSmoke.Require(game.OnlineSmokeFinalVisible && game.OnlineSmokeFinalCanLeave &&
+                    worker.Snapshot.Match?.Results.Count == rounds && shell.AudioCounts.GetValueOrDefault("error_notice") == 0,
+                    "Host departure dismissed or disrupted final screen");
+                MenuWindow.Capture(shell, Path.Combine(output, "final-after-host-left.png"));
+                game.OnlineSmokeFinalLeave();
+                await Until(() => shell.SmokeAtMainMenu, "guest-main-menu", allowFailure: true);
             }
+            MenuWindow.Capture(shell, Path.Combine(output, "back-at-main.png"));
+            OnlineSmoke.Require(System.Windows.Application.Current.Windows.Count == 1, "Final navigation created another window");
             if (index == 0 && onlineHost)
             {
                 // Without a same-PC registration, the unchanged code-entry UI must fall back
                 // to real EOS and allow correction of a closed/nonexistent code.
+                room = await shell.SmokeMultiplayerAsync();
                 room.SmokeJoinCode(File.ReadAllText(codeFile));
                 await Until(() => worker.Snapshot.Room?.State == EosLobbyState.Idle &&
                     worker.Snapshot.Room.Message.Contains("참가 가능한 방이 없습니다"), "automatic-eos-code-fallback", 40);
@@ -133,7 +166,9 @@ internal static class LocalProcessSmoke
             return new { status = "passed", index, processId = Environment.ProcessId, id, roster, rounds, realAi, eos = onlineHost && index == 0,
                 singleWindow = true, nicknames = true, settingsResetReadiness = true, fixedParameters = true,
                 tcpLoopback = true, boundaryChecks = index == 0, automaticEosFallback = onlineHost && index == 0,
-                galleryHashes, votes = expectedVotes, galleryAccessibility = true, hostLeave = true, elapsedSeconds = total.Elapsed.TotalSeconds };
+                galleryHashes, votes = expectedVotes, galleryAccessibility = true, hostLeave = true,
+                finalResults = final, finalScreenSynchronized = true, finalSurvivedHostLeave = index != 0, returnedToMain = true,
+                audio = shell.AudioCounts, musicChanges = shell.AudioMusicChanges, elapsedSeconds = total.Elapsed.TotalSeconds };
         }
         finally { await room.CloseAsync(); shell.Close(); await worker.StopAsync(); }
     }

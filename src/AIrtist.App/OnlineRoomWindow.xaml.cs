@@ -20,6 +20,7 @@ public partial class OnlineRoomWindow : GameScreen
     private bool closing, busy, queuedAction, operationPending;
     private OnlineCommand? pendingAction;
     private long submittedAfter;
+    private readonly ScreenAudioEvents sounds = new();
     internal RoundPreviewWindow? Game { get; private set; }
 
     internal OnlineRoomWindow(RuntimeAssets assets, IDrawingAi ai, OnlineSessionWorker worker, string settingsPath = "", Action<string>? copy = null)
@@ -139,10 +140,18 @@ public partial class OnlineRoomWindow : GameScreen
     {
         if (Game is not null || closing || view.Match is null) return;
         Game = new(assets, ai, worker);
+        var activeGame = Game;
+        Game.Audio = Audio; Audio?.Music(MusicTrack.Game);
         Game.Closed += async (_, _) =>
         {
             if (closing) return;
-            GameHost.Content = null; Game = null; await LeaveAsync(); screen = "choice"; Refresh();
+            if (activeGame.LeaveToMainMenu)
+            {
+                GameHost.Content = null; Game = null;
+                await CloseAsync();
+                return;
+            }
+            GameHost.Content = null; Game = null; Audio?.Music(MusicTrack.Menu); await LeaveAsync(); screen = "choice"; Refresh();
         };
         GameHost.Content = Game; GameHost.Visibility = Visibility.Visible; Entrance.Visibility = Visibility.Collapsed;
     }
@@ -211,6 +220,9 @@ public partial class OnlineRoomWindow : GameScreen
         Status.Text = !string.IsNullOrEmpty(localError) ? localError : view.Error ?? (view.Waiting?.Starting == true ? "경기 연결 준비 중…" : working ? "연결 중…" :
             view.Phase == OnlinePhase.Offline || screen == "choice" && view.Phase is not (OnlinePhase.Failed or OnlinePhase.Closed) ? "" : view.Message);
         Status.Visibility = string.IsNullOrEmpty(Status.Text) ? Visibility.Collapsed : Visibility.Visible;
+        if (Game is null && Audio is { } sound)
+            sounds.Error(sound, !string.IsNullOrEmpty(localError) && localError != "방 코드 복사 완료" ? localError :
+                view.Error ?? (view.Phase == OnlinePhase.Failed ? view.Message : null), view.ProcessedCommands);
         if (Game is null) { Entrance.Visibility = Visibility.Visible; GameHost.Visibility = Visibility.Collapsed; }
         if (view.Match is not null && IsVisible) OpenMatch();
     }

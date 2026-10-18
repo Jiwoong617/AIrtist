@@ -6,7 +6,7 @@ using AIrtist.Eos;
 namespace AIrtist.App;
 
 internal enum OnlinePhase { Offline, Connecting, Connected, Leaving, Failed, Closed }
-internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound, Draw, JoinCode }
+internal enum OnlineAction { Connect, Search, Create, Join, Prepare, Ready, Settings, Start, Translate, Confirm, Revise, Cancel, Vote, CloseVoting, NextRound, Draw, JoinCode, FinalResults }
 internal sealed record OnlineCommand(OnlineAction Action, long Generation, string Text = "", string Extra = "",
     int Number = 0, long Revision = 0, Guid RoundId = default, bool Ready = false, MultiplayerMatchSettings? Settings = null,
     GenerationParameters? Parameters = null);
@@ -101,7 +101,7 @@ internal sealed class OnlineSessionWorker
                     if (leaving || command.Generation != generation) continue;
                     try { Execute(command); error = ""; }
                     catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException)
-                    { error = command.Action is >= OnlineAction.Ready and <= OnlineAction.Draw ? ex.Message : "현재 상태에서는 요청을 처리할 수 없습니다. 상태를 확인하고 다시 시도해 주세요."; }
+                    { error = command.Action is >= OnlineAction.Ready and <= OnlineAction.Draw or OnlineAction.FinalResults ? ex.Message : "현재 상태에서는 요청을 처리할 수 없습니다. 상태를 확인하고 다시 시도해 주세요."; }
                     catch (Exception) { Fail("접속 처리에 실패했습니다. 최신 게임 패키지인지 확인하고 다시 연결해 주세요."); }
                     finally { processedCommands++; }
                 }
@@ -169,6 +169,7 @@ internal sealed class OnlineSessionWorker
             case OnlineAction.Vote: RequiredMatch().Vote(command.RoundId, command.Text); break;
             case OnlineAction.CloseVoting: RequiredMatch().CloseVoting(command.RoundId); break;
             case OnlineAction.NextRound: RequiredMatch().AdvanceRound(command.RoundId); break;
+            case OnlineAction.FinalResults: RequiredMatch().ShowFinalResults(command.RoundId); break;
             default: throw new ArgumentException();
         }
         MultiplayerLobbySession RequiredLobby() => core ?? throw new InvalidOperationException();

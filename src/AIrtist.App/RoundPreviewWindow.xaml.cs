@@ -30,6 +30,9 @@ public partial class RoundPreviewWindow : GameScreen
     private byte[]? shownPng;
     private bool closed;
     private string? commandError;
+    private readonly ScreenAudioEvents sounds = new(), connectionSounds = new();
+    private MatchFinalResults? displayedFinalResults;
+    internal bool LeaveToMainMenu { get; private set; }
     private record Card(string Id, BitmapSource Image, string Label, string Votes, string Action, bool CanVote, string Outline)
     {
         // UI Automation uses ToString for an item's name. A frozen frame can still have
@@ -55,7 +58,7 @@ public partial class RoundPreviewWindow : GameScreen
     private void Act(Action command)
     {
         try { command(); commandError = null; }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException) { commandError = ex.Message; }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or UnauthorizedAccessException) { commandError = ex.Message; Audio?.Cue(SoundCue.ErrorNotice); }
         Refresh();
     }
     private void StartClicked(object sender, RoutedEventArgs e) => Act(StartRound);
@@ -130,11 +133,37 @@ public partial class RoundPreviewWindow : GameScreen
     private void VoteClicked(object sender, RoutedEventArgs e) => Act(() => { string id = (string)((Button)sender).Tag; if (online is not null) SendOnline(OnlineAction.Vote, id); else Current?.Vote(shownRound, id); });
     private void CloseVoteClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.CloseVoting); else Current?.CloseVoting(shownRound); });
     private void NextRoundClicked(object sender, RoutedEventArgs e) => Act(() => { if (online is not null) SendOnline(OnlineAction.NextRound); else Current?.AdvanceRound(shownRound); });
+    private void ShowFinalClicked(object sender, RoutedEventArgs e) => Act(() =>
+    {
+        if (online is not null) SendOnline(OnlineAction.FinalResults);
+        else Current?.ShowFinalResults(shownRound);
+    });
+    private void FinalLeaveRequested(object? sender, EventArgs e)
+    {
+        LeaveToMainMenu = true;
+        Close();
+    }
     private void Refresh()
     {
         if (closed) return;
         if (online is not null) { onlineView = online.Snapshot; RefreshOnlineLobby(); } else RefreshLobby();
         var match = onlineView?.Match ?? Current?.Snapshot(); var state = match?.Round;
+        displayedFinalResults ??= match?.FinalResults;
+        if (displayedFinalResults is not null)
+        {
+            bool entering = FinalResults.Visibility != Visibility.Visible;
+            RoundPage.Visibility = Visibility.Collapsed; FinalResults.Visibility = Visibility.Visible;
+            FinalResults.ShowResults(displayedFinalResults, match?.FinalResultsDeliveryPending == true &&
+                (onlineView is null || onlineView.Phase == OnlinePhase.Connected));
+            if (entering) FinalResults.FocusEntry();
+            return; // Final results remain readable when the host or another participant leaves.
+        }
+        if (Audio is { } sound)
+        {
+            if (match?.Phase != MultiplayerMatchPhase.Stopped)
+                connectionSounds.Error(sound, loopFailure ?? onlineView?.Error ??
+                    (onlineView?.Phase == OnlinePhase.Failed ? onlineView.Message : null), onlineView?.ProcessedCommands ?? 0);
+        }
         // Role switching is local-preview-only. Keep it on the same round while
         // the begin message reaches the other simulated participants.
         Viewer.IsEnabled = rounds.Length == 0 || rounds.Select(r => r.Snapshot().RoundId).Distinct().Count() == 1;
@@ -156,6 +185,8 @@ public partial class RoundPreviewWindow : GameScreen
             + string.Join(" / ", players.Select(p => $"{p.Name}: {r.Result.Tallies.SingleOrDefault(t => t.OwnerId == p.Id)?.Votes ?? 0}표"))
             + (r.Result.Reason == VotingEnd.InsufficientImages ? " (투표 없음)" : "")));
         NextRound.Visibility = match.CanAdvance ? Visibility.Visible : Visibility.Collapsed;
+        ShowFinal.Visibility = match.IsHost && match.Phase == MultiplayerMatchPhase.Completed ? Visibility.Visible : Visibility.Collapsed;
+        ShowFinal.IsEnabled = match.CanShowFinalResults && (onlineView is null || onlineView.Phase == OnlinePhase.Connected);
         int role = Viewer.SelectedIndex;
         if (shownRole != role)
         {
@@ -228,6 +259,7 @@ public partial class RoundPreviewWindow : GameScreen
             ?? (match.Phase != MultiplayerMatchPhase.Playing || state.Gallery.Result is not null ? match.Message
                 : state.Gallery.CanVote ? "그림을 보고 다른 사람의 그림 하나에 투표해 주세요."
                 : state.Submission.UploadEnd == ImageSendEnd.Complete ? "그림 제출이 완료되었습니다. 다른 참가자를 기다립니다." : state.Message);
+        if (Audio is { } activeAudio) sounds.Match(activeAudio, match);
     }
     private string ResultText(VotingResult result)
     {

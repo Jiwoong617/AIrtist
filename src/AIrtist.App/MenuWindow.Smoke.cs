@@ -8,6 +8,7 @@ namespace AIrtist.App;
 
 public partial class MenuWindow
 {
+    internal bool SmokeAtMainMenu => child is null && MenuPage.Visibility == Visibility.Visible && ScreenHost.Content is null;
     internal async Task<OnlineRoomWindow> SmokeMultiplayerAsync()
     {
         MultiClicked(this, new());
@@ -56,6 +57,9 @@ public partial class MenuWindow
         var drawingTask = drawingWindow.OneClickSmokeAsync(output);
         SmokeSettings(false, Path.Combine(output, "generating-settings.png"));
         object drawingReport = await drawingTask;
+        await Task.Delay(400);
+        Require(audio.Mixer.Count(SoundCue.GenerationComplete) == 3, "Single drawing completion sound count");
+        Require(audio.Mixer.MusicChanges == 2, "Drawing settings restarted music");
         Require(new System.Windows.Interop.WindowInteropHelper(this).Handle == handle && Application.Current.Windows.Count == 1, "Single created another native window");
         SmokeSettings(false, Path.Combine(output, "settings-light.png")); Capture(ShellPage, Path.Combine(output, "drawing-light.png"));
         await drawingWindow.CloseAsync();
@@ -67,7 +71,8 @@ public partial class MenuWindow
         Require(new System.Windows.Interop.WindowInteropHelper(this).Handle == handle && Application.Current.Windows.Count == 1, "Navigation replaced the window");
         bool exited = false; Closed += (_, _) => exited = true;
         ExitClicked(this, new()); await OnlineSmoke.Until(() => exited);
-        return new { status = "passed", singleWindow = true, parameterTooltipsDelayMs = 1000, themeSaved = true, settingsEverywhere = true, navigation = true, resolution = true, savedVolumes = true, exit = true, drawingReport };
+        return new { status = "passed", singleWindow = true, parameterTooltipsDelayMs = 1000, themeSaved = true, settingsEverywhere = true, navigation = true, resolution = true, savedVolumes = true, exit = true, drawingReport,
+            audio = audio.Mixer.Counts(), musicChanges = audio.Mixer.MusicChanges };
     }    internal static void Capture(FrameworkElement view, string destination)
     {
         view.UpdateLayout();

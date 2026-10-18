@@ -20,6 +20,7 @@ public partial class MainWindow : GameScreen
     private bool closed;
     private OnlineSessionWorker? onlineWorker;
     private Task? drawingClick;
+    private readonly ScreenAudioEvents sounds = new();
     public int SmokeDispatcherTicks { get; private set; }
 
     public MainWindow(RuntimeAssets assets, IDrawingAi? ai = null)
@@ -51,6 +52,7 @@ public partial class MainWindow : GameScreen
         catch (Exception)
         {
             StatusLabel.Text = "필수 모델 파일이 없거나 손상되었습니다. 전체 앱 패키지를 다시 풀어 주세요.";
+            Audio?.Cue(SoundCue.ErrorNotice);
             Activity.Visibility = Visibility.Hidden;
         }
     }
@@ -70,7 +72,7 @@ public partial class MainWindow : GameScreen
             if (!closed) Refresh();
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
-        { if (!closed) { Refresh(); StatusLabel.Text = ex.Message; } }
+        { if (!closed) { Refresh(); StatusLabel.Text = ex.Message; Audio?.Cue(SoundCue.ErrorNotice); } }
     }
 
     private void HomeClicked(object sender, RoutedEventArgs e) => Close();
@@ -91,7 +93,7 @@ public partial class MainWindow : GameScreen
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            if (!closed) { Refresh(); StatusLabel.Text = ex.Message; }
+            if (!closed) { Refresh(); StatusLabel.Text = ex.Message; Audio?.Cue(SoundCue.ErrorNotice); }
         }
     }
 
@@ -111,7 +113,7 @@ public partial class MainWindow : GameScreen
         }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
         {
-            if (!closed) { Refresh(); StatusLabel.Text = ex.Message; }
+            if (!closed) { Refresh(); StatusLabel.Text = ex.Message; Audio?.Cue(SoundCue.ErrorNotice); }
         }
     }
 
@@ -154,6 +156,7 @@ public partial class MainWindow : GameScreen
             TranslationLabel.Text = "이 PC에서 생성합니다 · 앱을 닫으면 그림은 보관되지 않습니다";
             UsedParameters.Text = $"최근 그림\nCFG {result.Parameters.Guidance} · {result.Parameters.Steps} Steps\nSeed {result.Seed}";
         }
+        if (Audio is { } sound) sounds.Drawing(sound, state);
     }
 
     private void CancelClicked(object sender, RoutedEventArgs e) { drawing?.Cancel(shownVersion); Refresh(); }

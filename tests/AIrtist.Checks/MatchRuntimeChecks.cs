@@ -97,14 +97,15 @@ internal static class MatchRuntimeChecks
     }
     public static async Task Run()
     {
-        await TwoRounds(); await ConfirmationBarrier(); await ConfirmationFailures(); await LateAiBarrier(); await DisconnectAndLiveness(); await EmptyRounds(); await ProtocolValidation(); HostMessageValidation();
-        Console.WriteLine("Match runtime: two-round 3-player packet-loss play, fresh IDs/drafts/images, result receipts/history, host-only/stale commands, empty rounds, disconnect/liveness and protocol validation passed (local transport, fake AI)");
+        FinalAggregation(); await TwoRounds(); await ConfirmationBarrier(); await ConfirmationFailures(); await LateAiBarrier(); await DisconnectAndLiveness(); await EmptyRounds(); await ProtocolValidation(); HostMessageValidation();
+        Console.WriteLine("Match runtime: rounds/results, cumulative winners/ties/zero votes, host-only final screen, retransmission/ACK barrier, retained final results after disconnect and protocol validation passed (local transport, fake AI)");
     }
     private static async Task TwoRounds()
     {
         using var world = new World(loss: true); var host = world.Matches[0];
         Guid firstId = host.Snapshot().RoundId;
         Reject(() => host.AdvanceRound(firstId));
+        Reject(() => host.ShowFinalResults(firstId));
         await world.PlayRound();
         await world.Until(() => world.Matches.All(m => m.Snapshot().Phase == MultiplayerMatchPhase.BetweenRounds));
         string first = JsonSerializer.Serialize(host.Snapshot().Results[0]);
@@ -133,9 +134,23 @@ internal static class MatchRuntimeChecks
             && JsonSerializer.Serialize(host.Snapshot().Results[0]) == first
             && host.Snapshot().Results.All(r => r.Result.Tallies.Select(t => t.Votes).SequenceEqual([1, 2, 0])), "History mutated or diverged");
         Reject(() => host.AdvanceRound(secondId));
+        Require(world.Matches.All(m => m.Snapshot().FinalResults is null) && host.Snapshot().CanShowFinalResults &&
+            !world.Matches[1].Snapshot().CanShowFinalResults, "Final page opened automatically or guest was authorized");
+        Reject(() => world.Matches[1].ShowFinalResults(secondId)); Reject(() => host.ShowFinalResults(firstId));
+        world.DropHostMatch = true;
+        host.ShowFinalResults(secondId); host.ShowFinalResults(secondId);
+        Require(host.Snapshot().FinalResultsDeliveryPending, "Host could leave before final display message delivery");
+        await world.Until(() => world.Matches[1].Snapshot().FinalResults is not null);
+        Require(world.Matches[2].Snapshot().FinalResults is null && host.Snapshot().FinalResultsDeliveryPending, "Lost packet bypassed final delivery barrier");
+        world.DropHostMatch = false;
+        await world.Until(() => world.Matches.All(m => m.Snapshot().FinalResults is not null) && !host.Snapshot().FinalResultsDeliveryPending);
+        string standings = JsonSerializer.Serialize(host.Snapshot().FinalResults);
+        Require(world.Matches.All(m => JsonSerializer.Serialize(m.Snapshot().FinalResults) == standings) &&
+            host.Snapshot().FinalResults!.Winners.Single() is { PlayerId: "p2", Votes: 4 }, "Cumulative standings diverged");
         world.Transports[0].Dispose();
         foreach (var m in world.Matches) m.Tick();
         Require(JsonSerializer.Serialize(world.Matches[1].Snapshot().Results) == final, "Host loss erased history");
+        Require(JsonSerializer.Serialize(world.Matches[1].Snapshot().FinalResults) == standings, "Host loss erased final screen");
     }
     private static async Task ConfirmationBarrier()
     {
@@ -209,6 +224,8 @@ internal static class MatchRuntimeChecks
         world.Matches[0].AdvanceRound(world.Matches[0].Snapshot().RoundId);
         await world.Until(() => world.Matches.All(m => m.Snapshot().Phase == MultiplayerMatchPhase.Completed));
         Require(world.Matches.All(m => m.Snapshot().Results.Count == 2 && m.Snapshot().Results.All(r => r.Result.Reason == VotingEnd.InsufficientImages)), "Empty match not finalized");
+        world.Matches[0].ShowFinalResults(world.Matches[0].Snapshot().RoundId);
+        await world.Until(() => world.Matches.All(m => m.Snapshot().FinalResults is { TotalVotes: 0, Winners.Count: 0 }));
     }
     private static async Task ProtocolValidation()
     {
@@ -219,7 +236,7 @@ internal static class MatchRuntimeChecks
         // pins p3, so the p2 receiver must not dispatch it as host control.
         using var forged = new ReliableControlChannel(world.MatchId, world.MatchId, "p2", clock: world.Clock);
         forged.TryQueue(RoundControlMessages.Encode(new MatchProgress(world.MatchId, state.RoundId, 1, "p2", 99,
-            MultiplayerMatchPhase.Completed, ["p1", "p2", "p3"], MatchStopReason.None)), out _);
+            MultiplayerMatchPhase.Completed, ["p1", "p2", "p3"], MatchStopReason.None) { FinalResultsOpened = true }), out _);
         foreach (var packet in forged.PollPackets()) world.Transports[2].TrySend("p2", RoundPacketKind.MatchControlToClient, packet);
         world.Matches[1].Tick();
         Require(world.Matches[1].Snapshot().Phase == MultiplayerMatchPhase.Playing && world.Matches[1].Snapshot().Results.Count == 0, "Peer forged match completion");
@@ -256,6 +273,9 @@ internal static class MatchRuntimeChecks
         Require(receiver.Snapshot().RoundId == roundId && receiver.Snapshot().Results.Count == 0, "Skipped/premature round replaced active round");
         var progress = new MatchProgress(matchId, roundId, 1, "p2", 5, MultiplayerMatchPhase.Playing, [], MatchStopReason.None);
         Deliver(progress);
+        Deliver(progress with { Revision = 6, FinalResultsOpened = true });
+        Deliver(progress with { Revision = 6, Phase = MultiplayerMatchPhase.Completed, ReadyPlayerIds = ["p1", "p2"], FinalResultsOpened = true });
+        Require(receiver.Snapshot().FinalResults is null, "Premature final page accepted");
         Deliver(progress with { Phase = MultiplayerMatchPhase.Completed, ReadyPlayerIds = ["p1", "p2"] });
         Deliver(progress with { Phase = MultiplayerMatchPhase.Stopped, StopReason = MatchStopReason.RoundFailed });
         Deliver(progress with { Revision = 4, Phase = MultiplayerMatchPhase.Stopped, StopReason = MatchStopReason.RoundFailed });
@@ -265,5 +285,22 @@ internal static class MatchRuntimeChecks
         Deliver(progress with { Revision = 6, Phase = MultiplayerMatchPhase.Stopped, StopReason = MatchStopReason.RoundFailed });
         Deliver(begin with { RoundId = Guid.NewGuid(), RoundNumber = 2 });
         Require(receiver.Snapshot().Phase == MultiplayerMatchPhase.Stopped && receiver.Snapshot().RoundNumber == 1, "Stopped match restarted");
+    }
+    private static void FinalAggregation()
+    {
+        VotingPlayer[] players = [new("a", "같은이름"), new("b", "같은이름"), new("c", "세번째")];
+        Guid match = Guid.NewGuid();
+        MatchRoundRecord Record(int number, params int[] votes) => new(number, "apple", new(match, Guid.NewGuid(), 1, 1,
+            VotingEnd.AllVoted, DateTimeOffset.UnixEpoch, players.Select((p, i) => new ArtworkTally("art-" + p.Id, p.Id, votes[i])).ToArray(),
+            [], votes.Sum(), players.Length, players.Length - votes.Sum()));
+        var tie = MatchFinalResults.Create(players, [Record(1, 2, 1, 0), Record(2, 0, 1, 1)]);
+        Require(tie.Winners.Select(p => p.PlayerId).SequenceEqual(["a", "b"]) && tie.Winners.All(p => p.Votes == 2) &&
+            tie.TotalVotes == 5 && tie.Players.Count == 3, "Tied totals merged names or counted round wins");
+        var single = MatchFinalResults.Create(players, [Record(1, 0, 0, 2)]);
+        Require(single.Winners.Single() is { PlayerId: "c", Votes: 2 }, "Single winner aggregation");
+        Require(MatchFinalResults.Create(players, [Record(1, 0, 0, 0)]).Winners.Count == 0, "All-zero match has winners");
+        Reject(() => MatchFinalResults.Create(players, [Record(2, 1, 1, 1)]));
+        Reject(() => MatchFinalResults.Create(players, [Record(1, -1, 1, 1)]));
+        Require(!Compatibility.Matches(Compatibility with { RulesVersion = "multiplayer-waiting-v8" }), "Old final-screen-incompatible build accepted");
     }
 }

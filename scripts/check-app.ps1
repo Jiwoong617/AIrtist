@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory=$true)][string]$PackageDirectory,
     [Parameter(Mandatory=$true)][string]$OutputDirectory,
-    [ValidateSet('self-check', 'drawing-smoke', 'parameter-smoke', 'menu-smoke', 'voting-smoke', 'round-smoke', 'match-smoke', 'lobby-smoke', 'online-smoke', 'online-live-smoke')][string]$Mode = 'drawing-smoke',
+    [ValidateSet('self-check', 'drawing-smoke', 'parameter-smoke', 'menu-smoke', 'audio-smoke', 'results-smoke', 'voting-smoke', 'round-smoke', 'match-smoke', 'lobby-smoke', 'online-smoke', 'online-live-smoke')][string]$Mode = 'drawing-smoke',
     [string[]]$VotingImages,
     [string]$ModelDirectory,
     [string]$EosConfigPath

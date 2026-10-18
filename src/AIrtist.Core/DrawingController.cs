@@ -75,7 +75,10 @@ public sealed record DrawingResult(string Description, string Translation, byte[
 {
     public GenerationParameters Parameters { get; init; } = new(Seed: Seed);
 }
-public sealed record DrawingSnapshot(long Version, DrawingPhase Phase, bool Busy, string Message, DrawingDraft? Draft, DrawingResult? Result);
+public sealed record DrawingSnapshot(long Version, DrawingPhase Phase, bool Busy, string Message, DrawingDraft? Draft, DrawingResult? Result)
+{
+    public long FailureRevision { get; init; }
+}
 
 // Free drawing owns one AI operation at a time, without words, rounds or submission rights.
 public sealed class DrawingController : IDisposable
@@ -84,7 +87,7 @@ public sealed class DrawingController : IDisposable
     private readonly IDrawingAi ai;
     private readonly TimeSpan operationTimeout;
     private CancellationTokenSource? active;
-    private long version, draftId;
+    private long version, draftId, failureRevision;
     private bool disposed;
     private DrawingPhase phase = DrawingPhase.Editing;
     private string message = "원하는 그림을 자유롭게 묘사해 주세요";
@@ -101,7 +104,7 @@ public sealed class DrawingController : IDisposable
 
     public DrawingSnapshot Snapshot
     {
-        get { lock (sync) { CheckAlive(); return new(version, phase, active is not null, message, draft, result); } }
+        get { lock (sync) { CheckAlive(); return new(version, phase, active is not null, message, draft, result) { FailureRevision = failureRevision }; } }
     }
 
     public Task DrawAsync(long expectedVersion, string description, GenerationParameters parameters)
@@ -238,6 +241,7 @@ public sealed class DrawingController : IDisposable
             {
                 if (disposed || version != operation) return;
                 bool generationFailed = phase == DrawingPhase.Generating;
+                if (!request.IsCancellationRequested) failureRevision++;
                 phase = generating && draft is not null ? DrawingPhase.Reviewing : DrawingPhase.Editing;
                 message = combined.IsCancellationRequested
                     ? request.IsCancellationRequested ? "작업을 취소했습니다. 다시 시도할 수 있어요" : "AI 처리 제한 시간이 지났습니다. 다시 시도할 수 있어요"

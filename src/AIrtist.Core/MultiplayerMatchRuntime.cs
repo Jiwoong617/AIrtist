@@ -25,11 +25,19 @@ public sealed record MatchBeginRound(Guid MatchId, string RecipientId, Guid Roun
 public sealed record MatchRoundFinished(Guid MatchId, Guid RoundId, int RoundNumber, string PlayerId, string ResultHash);
 public sealed record MatchHeartbeat(Guid MatchId, string PlayerId);
 public sealed record MatchProgress(Guid MatchId, Guid RoundId, int RoundNumber, string RecipientId, long Revision,
-    MultiplayerMatchPhase Phase, IReadOnlyList<string> ReadyPlayerIds, MatchStopReason StopReason);
+    MultiplayerMatchPhase Phase, IReadOnlyList<string> ReadyPlayerIds, MatchStopReason StopReason)
+{
+    public bool FinalResultsOpened { get; init; }
+}
 public sealed record MatchRoundRecord(int RoundNumber, string WordId, VotingResult Result);
 public sealed record MatchRuntimeSnapshot(Guid MatchId, Guid RoundId, int RoundNumber, int RoundCount, bool IsHost,
     MultiplayerMatchPhase Phase, bool CanAdvance, IReadOnlyList<string> ReadyPlayerIds,
-    IReadOnlyList<MatchRoundRecord> Results, RoundRuntimeSnapshot? Round, string Message);
+    IReadOnlyList<MatchRoundRecord> Results, RoundRuntimeSnapshot? Round, string Message)
+{
+    public MatchFinalResults? FinalResults { get; init; }
+    public bool CanShowFinalResults { get; init; }
+    public bool FinalResultsDeliveryPending { get; init; }
+}
 
 // One authenticated participant for an entire match. Match control lanes persist
 // across round replacement; per-round control/image queues and AI are disposed.
@@ -59,11 +67,13 @@ public sealed class MultiplayerMatchRuntime : IDisposable
     private long revision, receivedRevision, confirmationStarted, lastHeartbeat, lastHostMessage;
     private bool confirmationTimer, finishQueued, disposed;
     private readonly bool isHost;
+    private MatchFinalResults? finalResults;
     private sealed class Peer(ReliableControlEndpoint endpoint)
     {
         public readonly ReliableControlEndpoint Endpoint = endpoint;
         public int SentRound;
         public long SentRevision;
+        public ulong FinalResultsSequence;
     }
     // A round may clear its receive queue without closing the persistent peer.
     private sealed class RoundLease(IRoundTransport parent) : IRoundTransport
@@ -137,6 +147,26 @@ public sealed class MultiplayerMatchRuntime : IDisposable
             BeginHostRound(start.Settings);
         }
     }
+    public void ShowFinalResults(Guid expectedRoundId)
+    {
+        lock (sync)
+        {
+            CheckAlive();
+            if (!isHost) throw new UnauthorizedAccessException("방장만 최종 결과를 열 수 있습니다.");
+            if (start?.RoundId != expectedRoundId || phase != MultiplayerMatchPhase.Completed)
+                throw new InvalidOperationException("모든 라운드의 결과 확인이 끝난 뒤 진행해 주세요.");
+            if (finalResults is not null) return; // Repeated host commands are idempotent.
+            if (!CanShowFinalResults()) throw new InvalidOperationException("참가자 연결을 확인할 수 없어 최종 결과를 열지 못했습니다.");
+            finalResults = MatchFinalResults.Create(context.Participants.Select(p => p.Player).ToArray(), results);
+            revision++;
+        }
+    }
+    private bool CanShowFinalResults() => isHost && phase == MultiplayerMatchPhase.Completed && finalResults is null &&
+        start is not null && results.Count == start.Settings.RoundCount &&
+        peers.All(p => transport.IsConnected(p.Key) && p.Value.Endpoint.Snapshot().Failure == ControlChannelFailure.None);
+    private bool FinalDeliveryPending() => isHost && finalResults is not null && peers.Any(p => p.Key != context.HostId &&
+        transport.IsConnected(p.Key) && p.Value.Endpoint.Snapshot().Failure == ControlChannelFailure.None &&
+        (p.Value.FinalResultsSequence == 0 || p.Value.Endpoint.Snapshot().LastAcknowledgedSequence < p.Value.FinalResultsSequence));
     private void BeginHostRound(MultiplayerMatchSettings settings)
     {
         Guid id; do { id = Guid.NewGuid(); } while (id == context.MatchId || seenRounds.Contains(id));
@@ -228,8 +258,12 @@ public sealed class MultiplayerMatchRuntime : IDisposable
             var p = pair.Value;
             if (p.SentRound < start.RoundNumber && p.Endpoint.Queue(start with { RecipientId = pair.Key }) == ControlQueueStatus.Queued) p.SentRound = start.RoundNumber;
             if (p.SentRound == start.RoundNumber && p.SentRevision < revision
-                && p.Endpoint.Queue(new MatchProgress(context.MatchId, start.RoundId, start.RoundNumber, pair.Key, revision, phase, ready, stopReason)) == ControlQueueStatus.Queued)
+                && p.Endpoint.Queue(new MatchProgress(context.MatchId, start.RoundId, start.RoundNumber, pair.Key, revision, phase, ready, stopReason)
+                    { FinalResultsOpened = finalResults is not null }, out ulong sequence) == ControlQueueStatus.Queued)
+            {
                 p.SentRevision = revision;
+                if (finalResults is not null) p.FinalResultsSequence = sequence;
+            }
         }
     }
     private ControlDispatchResult DispatchHost(string sender, byte[] bytes)
@@ -260,6 +294,7 @@ public sealed class MultiplayerMatchRuntime : IDisposable
         if (progress.MatchId != context.MatchId || progress.RoundId != start.RoundId || progress.RoundNumber != start.RoundNumber) return new(RoundSyncStatus.WrongRound);
         if (progress.RecipientId != context.LocalId) return new(RoundSyncStatus.WrongRecipient);
         if (progress.Revision < 1 || !Enum.IsDefined(progress.Phase) || progress.Phase == MultiplayerMatchPhase.AwaitingStart || !Enum.IsDefined(progress.StopReason)
+            || progress.FinalResultsOpened && progress.Phase != MultiplayerMatchPhase.Completed
             || (progress.Phase == MultiplayerMatchPhase.Stopped) != (progress.StopReason != MatchStopReason.None)
             || progress.ReadyPlayerIds is null || progress.ReadyPlayerIds.Count > context.Participants.Count
             || !context.Participants.Select(p => p.Player.Id).Where(progress.ReadyPlayerIds.Contains).SequenceEqual(progress.ReadyPlayerIds)) return new(RoundSyncStatus.InvalidMessage);
@@ -270,10 +305,14 @@ public sealed class MultiplayerMatchRuntime : IDisposable
             && (results.Count != start.RoundNumber || progress.ReadyPlayerIds.Count != context.Participants.Count
                 || (progress.Phase == MultiplayerMatchPhase.Completed) != (start.RoundNumber == start.Settings.RoundCount))) return new(RoundSyncStatus.InvalidMessage);
         if (progress.Revision == receivedRevision)
-            return new(progress.Phase == phase && progress.ReadyPlayerIds.SequenceEqual(ready) && progress.StopReason == stopReason ? RoundSyncStatus.Duplicate : RoundSyncStatus.Conflict);
+            return new(progress.Phase == phase && progress.ReadyPlayerIds.SequenceEqual(ready) && progress.StopReason == stopReason &&
+                progress.FinalResultsOpened == (finalResults is not null) ? RoundSyncStatus.Duplicate : RoundSyncStatus.Conflict);
+        if (finalResults is not null && !progress.FinalResultsOpened) return new(RoundSyncStatus.Conflict);
         if (progress.Phase < phase || ready.Any(id => !progress.ReadyPlayerIds.Contains(id))) return new(RoundSyncStatus.Conflict);
         receivedRevision = progress.Revision; ready = progress.ReadyPlayerIds.ToArray();
         if (progress.Phase == MultiplayerMatchPhase.Stopped) Stop(progress.StopReason); else phase = progress.Phase;
+        if (progress.FinalResultsOpened && finalResults is null)
+            finalResults = MatchFinalResults.Create(context.Participants.Select(p => p.Player).ToArray(), results);
         return new(RoundSyncStatus.Accepted);
     }
     private RoundSyncStatus AcceptBegin(MatchBeginRound begin)
@@ -331,7 +370,8 @@ public sealed class MultiplayerMatchRuntime : IDisposable
             };
             return new(context.MatchId, start?.RoundId ?? Guid.Empty, start?.RoundNumber ?? 0, start?.Settings.RoundCount ?? 0,
                 isHost, phase, isHost && phase == MultiplayerMatchPhase.BetweenRounds, Array.AsReadOnly((string[])ready.Clone()),
-                Array.AsReadOnly(results.ToArray()), round?.Snapshot() ?? stoppedRound, message);
+                Array.AsReadOnly(results.ToArray()), round?.Snapshot() ?? stoppedRound, message)
+            { FinalResults = finalResults, CanShowFinalResults = CanShowFinalResults(), FinalResultsDeliveryPending = FinalDeliveryPending() };
         }
     }
     private static VotingResult Freeze(VotingResult result) => result with

@@ -30,7 +30,11 @@ try {
     if (@($reports.processId | Sort-Object -Unique).Count -ne $Players -or @($reports.id | Sort-Object -Unique).Count -ne $Players) { throw 'Independent processes/players not verified' }
     $expected=$reports[0].galleryHashes | ConvertTo-Json -Depth 6 -Compress
     foreach ($report in $reports) { if (($report.galleryHashes | ConvertTo-Json -Depth 6 -Compress) -ne $expected) { throw 'PNG hashes differ between processes' } }
-    $summary=[ordered]@{status='passed';processes=$Players;players=$Players;rounds=$reports[0].rounds;realAi=[bool]$RealAi;tcpLoopback=$true;eos=[bool]$OnlineHost;identicalGalleryHashes=$true;galleryAccessibility=$true;hostLeave=$true}
+    $final=$reports[0].finalResults | ConvertTo-Json -Depth 6 -Compress
+    foreach ($report in $reports) {
+        if (($report.finalResults | ConvertTo-Json -Depth 6 -Compress) -ne $final -or -not $report.returnedToMain -or -not $report.finalScreenSynchronized) { throw 'Final screen or main-menu navigation failed' }
+    }
+    $summary=[ordered]@{status='passed';processes=$Players;players=$Players;rounds=$reports[0].rounds;realAi=[bool]$RealAi;tcpLoopback=$true;eos=[bool]$OnlineHost;identicalGalleryHashes=$true;galleryAccessibility=$true;hostLeave=$true;finalResultsSynchronized=$true;returnedToMain=$true}
     $summary | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $outputPath 'status.json') -Encoding utf8
     $summary | ConvertTo-Json
 } finally {

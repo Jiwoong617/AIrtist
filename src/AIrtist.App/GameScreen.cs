@@ -6,6 +6,7 @@ namespace AIrtist.App;
 public class GameScreen : UserControl
 {
     private Task? closeTask;
+    internal GameAudio? Audio { get; set; }
     public event EventHandler? Closed;
     public string Title { get; protected set; } = "AIrtist";
     public async void Close() => await CloseAsync();
