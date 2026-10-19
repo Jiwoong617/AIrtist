@@ -42,13 +42,16 @@ public partial class MenuWindow
             Require(System.Windows.Controls.ToolTipService.GetInitialShowDelay(label) == 1000 &&
                 System.Windows.Controls.ToolTipService.GetShowOnDisabled(label) && label.ToolTip is string { Length: > 0 }, "Parameter tooltip missing");
         }
-        Require(MainMenu.Visibility == Visibility.Visible && SettingsOverlay.Visibility == Visibility.Collapsed, "Startup is not the main menu");
+        Require(MainMenu.Visibility == Visibility.Visible && SettingsOverlay.Visibility == Visibility.Collapsed &&
+            LicenseOverlay.Visibility == Visibility.Collapsed, "Startup is not the main menu");
         var handle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
         Capture(ShellPage, Path.Combine(output, "main-menu.png"));
+        await SmokeLicensesAsync(Path.Combine(output, "licenses-main-light.png"), allDocuments: true);
         SettingsClicked(this, new());
         Resolution.SelectedIndex = 1; Bgm.Value = 34; Sfx.Value = 81; ThemeChoice.SelectedIndex = 1; ApplyClicked(this, new());
         Require(GameSettings.Load(settingsPath) == new GameSettings(1280, 900, 34, 81, true), "Settings did not persist");
         Capture(ShellPage, Path.Combine(output, "settings-dark.png")); BackClicked(this, new());
+        await SmokeLicensesAsync(Path.Combine(output, "licenses-main-dark.png"));
         SingleClicked(this, new());
         await OnlineSmoke.Until(() => child is MainWindow drawing && drawing.SmokeInitialized);
         var drawingWindow = (MainWindow)child!;
@@ -56,6 +59,7 @@ public partial class MenuWindow
         SmokeSettings(true, Path.Combine(output, "drawing-settings.png"));
         var drawingTask = drawingWindow.OneClickSmokeAsync(output);
         SmokeSettings(false, Path.Combine(output, "generating-settings.png"));
+        await SmokeLicensesAsync(Path.Combine(output, "licenses-generating.png"));
         object drawingReport = await drawingTask;
         await Task.Delay(400);
         Require(audio.Mixer.Count(SoundCue.GenerationComplete) == 3, "Single drawing completion sound count");
@@ -65,13 +69,16 @@ public partial class MenuWindow
         await drawingWindow.CloseAsync();
         var room = await SmokeMultiplayerAsync();
         SmokeSettings(true, Path.Combine(output, "multiplayer-settings.png"));
+        await SmokeLicensesAsync(Path.Combine(output, "licenses-multiplayer.png"));
         Capture(ShellPage, Path.Combine(output, "multiplayer-dark.png"));
         await room.CloseAsync();
         SmokeSettings(false, Path.Combine(output, "main-settings.png"));
         Require(new System.Windows.Interop.WindowInteropHelper(this).Handle == handle && Application.Current.Windows.Count == 1, "Navigation replaced the window");
         bool exited = false; Closed += (_, _) => exited = true;
         ExitClicked(this, new()); await OnlineSmoke.Until(() => exited);
-        return new { status = "passed", singleWindow = true, parameterTooltipsDelayMs = 1000, themeSaved = true, settingsEverywhere = true, navigation = true, resolution = true, savedVolumes = true, exit = true, drawingReport,
+        return new { status = "passed", singleWindow = true, parameterTooltipsDelayMs = 1000, themeSaved = true, settingsEverywhere = true,
+            licenseDocuments = LicenseDocument.All.Count, licensesEverywhere = true, licenseScrollAndSelection = true, licensePanelSwitching = true,
+            navigation = true, resolution = true, savedVolumes = true, exit = true, drawingReport,
             audio = audio.Mixer.Counts(), musicChanges = audio.Mixer.MusicChanges };
     }    internal static void Capture(FrameworkElement view, string destination)
     {

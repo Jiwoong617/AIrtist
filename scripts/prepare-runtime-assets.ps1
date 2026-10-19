@@ -4,15 +4,24 @@ $taskRoot = Split-Path -Parent $PSScriptRoot
 $modelsPath = (Resolve-Path -LiteralPath $ModelsDirectory).Path
 $layout = Get-Content -LiteralPath (Join-Path $taskRoot 'data/runtime-assets.json') -Raw | ConvertFrom-Json
 $paths = @{}
+$noticeSources = @{}
+foreach ($source in Get-ChildItem -LiteralPath (Join-Path $taskRoot 'data/licenses') -File) {
+    $noticeSources['licenses/' + $source.Name] = $source.FullName
+}
+$noticeSources['licenses/CHANGES.txt'] = Join-Path $taskRoot 'data/MODEL_CHANGES.txt'
 foreach ($relative in $layout.requiredFiles) {
     $path = [IO.Path]::GetFullPath((Join-Path $modelsPath $relative))
     if (-not $path.StartsWith($modelsPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or $paths.ContainsKey($relative)) { throw 'Invalid runtime layout' }
     $paths[$relative] = $path
-    if ($relative -ne 'licenses/CHANGES.txt' -and -not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Prepared asset missing: $relative" }
+    if (-not $noticeSources.ContainsKey($relative) -and -not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Prepared asset missing: $relative" }
 }
 # This explicit preparation step refreshes metadata after a model conversion/configuration change.
 # Normal builds verify the existing manifest and never silently re-sign changed model files.
-Copy-Item -LiteralPath (Join-Path $taskRoot 'data/MODEL_CHANGES.txt') -Destination $paths['licenses/CHANGES.txt']
+foreach ($relative in $noticeSources.Keys) {
+    if (-not $paths.ContainsKey($relative)) { throw "License is not declared in runtime layout: $relative" }
+    New-Item -ItemType Directory -Path (Split-Path -Parent $paths[$relative]) -Force | Out-Null
+    Copy-Item -LiteralPath $noticeSources[$relative] -Destination $paths[$relative]
+}
 $files = @(foreach ($relative in $layout.requiredFiles) {
     $path = $paths[$relative]
     [ordered]@{ path=$relative; bytes=(Get-Item -LiteralPath $path).Length; sha256=(Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant() }

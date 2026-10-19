@@ -93,6 +93,9 @@ EOS 게임 클라이언트 연결 설정은 앱에 포함되어 별도 파일을
 실제 EOS 단일 참가자의 자동 인증·방 코드 생성·나가기·재접속·닫힌 코드 거절을 확인했습니다. 다른 PC 참가·P2P 그림 전송·온라인 투표는 아직 검증 전입니다.
 현재 규칙은 multiplayer-results-v9입니다. 모든 참가자가 같은 최신 빌드를 사용해야 합니다.
 모델과 라이브러리의 조건·고지는 models/licenses와 licenses 폴더에 있습니다.
+모든 화면 우측 상단의 설정 옆 라이선스 버튼에서 모델 이용 조건·출처·파일별 변경 내역과 라이선스 원문을 오프라인으로 확인할 수 있습니다.
+Tiny-SD 및 파생 모델의 사용·재배포에는 models/licenses/MODEL_TERMS.ko.txt와 CreativeML Open RAIL-M 제5항·Attachment A의 사용 제한이 적용되며 이를 준수해야 합니다.
+OPUS-MT의 고정 모델 카드는 Apache-2.0, 제작진의 사전학습 모델 안내는 CC BY 4.0으로 표기되어 있어 두 공식 표기와 출처를 함께 제공합니다. 어느 하나로 통일하거나 이중 라이선스로 확정한 것은 아닙니다.
 일반 실행의 그림·입력은 앱 메모리에만 보관합니다. 진단 옵션은 지정한 폴더에 검사 자료를 저장합니다.
 '@
 [IO.File]::WriteAllText((Join-Path $packagePath 'README.txt'), $readme, [Text.UTF8Encoding]::new($false))

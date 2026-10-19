@@ -1,6 +1,20 @@
-AIrtist drawing preview, 2026-09-22. No new model training.
-Tiny-SD: published U-Net weights stored as mixed INT8, FP32 computation, converted to ONNX. Original VAE replaced by published TAESD decoder.
-OPUS-MT ko-en: shared embedding reused, weights rounded to FP16 storage and cast to FP32 for inference. Greedy decoding.
-Scheduler coefficients derived from Diffusers 0.35.1 (Apache-2.0); generation CLIP BPE based on the published CLIP algorithm (MIT).
-Image scoring models and evaluation vectors are no longer distributed. The Tiny-SD generation text encoder and tokenizer remain required.
-Full Tiny-SD/TAESD original weight licenses remain applicable.
+AIrtist model modifications / 파일별 변경 내역
+Notice updated: 2026-10-19. Describes existing conversions; model weights were not changed in this license update. No new model training by AIrtist.
+
+Source: segmind/tiny-sd @ cad0bd7495fa6c4bcca01b19a723dc91627fe84f
+generation/unet-w8.onnx — MODIFIED: ONNX conversion; mixed per-output-channel symmetric INT8 weight storage using optimum-quanto 0.2.7; FP32 computation. Sensitive layers, norms and biases retain floating precision. See UNet_NOTICE.txt.
+generation/text_encoder-compact.onnx — MODIFIED: published text encoder converted to ONNX and compact weight storage. No new training.
+generation/tokenizer/vocab.json, generation/tokenizer/merges.txt — copied from the pinned Tiny-SD tokenizer; no vocabulary changes.
+generation/settings.json — app configuration derived from the published generation settings.
+generation/scheduler.json — precomputed scheduler coefficients from Diffusers 0.35.1 (Apache-2.0).
+The published Tiny-SD VAE is not shipped; it is replaced by the following TAESD decoder. CreativeML Open RAIL-M remains applicable to Tiny-SD and its derivatives.
+
+Source: madebyollin/taesd @ 614f76814bbe30edbe2e627ace1c2234c81a2c0e
+generation/taesd_decoder-compact.onnx — MODIFIED: decoder extracted from published TAESD, encoder omitted, converted to ONNX with compact storage. No new training. See TAESD_NOTICE.txt and TAESD_LICENSE.txt (MIT).
+
+Source: Helsinki-NLP/opus-mt-ko-en @ e42d1f41b66194e6d10512f8a27bebc1f4f5097e
+translation/step-fp16-storage.onnx — MODIFIED: converted to ONNX; shared embedding reused; weights rounded to FP16 storage and cast to FP32 for inference. No new training. Greedy decoding is implemented in the app.
+translation/source.spm, translation/vocab.json — copied unchanged from the pinned repository.
+See OPUS-MT_NOTICE.txt for the pinned Apache-2.0 model-card statement and the author's CC BY 4.0 statement. Both are preserved without asserting a dual-license choice.
+
+Generation CLIP BPE is based on the published OpenAI CLIP algorithm (MIT). Image scoring models and evaluation vectors are not shipped. Source URLs, original notices and licenses are listed in MODEL_SOURCES.txt and the accompanying license files.

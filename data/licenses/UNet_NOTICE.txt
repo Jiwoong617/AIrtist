@@ -1,0 +1,1 @@
+Modified Tiny-SD U-Net: post-training per-output-channel symmetric INT8 weights via optimum-quanto 0.2.7; FP32 activations. conv_in, conv_out, time_embedding, norms and biases retain floating precision. No training.

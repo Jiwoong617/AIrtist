@@ -1,0 +1,42 @@
+AIrtist model sources / 모델 출처
+Notice updated: 2026-10-19
+
+Tiny-SD — Segmind
+Repository: https://huggingface.co/segmind/tiny-sd
+Revision: cad0bd7495fa6c4bcca01b19a723dc91627fe84f
+Model card: https://huggingface.co/segmind/tiny-sd/blob/cad0bd7495fa6c4bcca01b19a723dc91627fe84f/README.md
+Declared license: CreativeML Open RAIL-M (August 22, 2022)
+License source: https://github.com/segmind/distill-sd/blob/master/LICENSE
+License copy: Tiny-SD_LICENSE.txt
+Copyright in the license: (c) 2022 Robin Rombach and Patrick Esser and contributors
+Files: generation/unet-w8.onnx; generation/text_encoder-compact.onnx; generation/tokenizer/vocab.json; generation/tokenizer/merges.txt; generation/settings.json; generation/scheduler.json
+Changes: see CHANGES.txt and UNet_NOTICE.txt. No new training by AIrtist.
+The Tiny-SD card identifies SG161222/Realistic_Vision_V4.0 as its base model. That URL redirects to https://huggingface.co/SG161222/Realistic_Vision_V4.0_noVAE ; its recorded model-card revision 1685907c0283c7278ba26c5fe561506f564b48d3 declares CreativeML Open RAIL-M. This is a provenance record, not verification of Segmind's exact training checkpoint.
+
+TAESD — Ollin Boer Bohan
+Repository: https://huggingface.co/madebyollin/taesd
+Revision: 614f76814bbe30edbe2e627ace1c2234c81a2c0e
+Model card: https://huggingface.co/madebyollin/taesd/blob/614f76814bbe30edbe2e627ace1c2234c81a2c0e/README.md
+License: MIT
+License source: https://github.com/madebyollin/taesd/blob/main/LICENSE
+Copyright (c) 2023 Ollin Boer Bohan
+License copy: TAESD_LICENSE.txt
+File: generation/taesd_decoder-compact.onnx
+Changes: decoder extraction and ONNX conversion; see CHANGES.txt and TAESD_NOTICE.txt.
+
+OPUS-MT Korean to English — Helsinki-NLP
+Repository: https://huggingface.co/Helsinki-NLP/opus-mt-ko-en
+Revision: e42d1f41b66194e6d10512f8a27bebc1f4f5097e
+Model card: https://huggingface.co/Helsinki-NLP/opus-mt-ko-en/blob/e42d1f41b66194e6d10512f8a27bebc1f4f5097e/README.md
+Original model referenced by the card: https://object.pouta.csc.fi/Tatoeba-MT-models/kor-eng/opus-2020-06-17.zip
+Original model information: https://github.com/Helsinki-NLP/Tatoeba-Challenge/tree/master/models/kor-eng
+The pinned HF card declares Apache-2.0. The author's general pretrained-model documentation declares CC BY 4.0: https://github.com/Helsinki-NLP/OPUS-MT-train#pre-trained-models
+Both statements are preserved, not resolved or asserted to be a choice of dual licenses. See OPUS-MT_NOTICE.txt, OPUS-MT_MODEL_CARD.md, Apache-2.0.txt and CC-BY-4.0.txt.
+Files: translation/step-fp16-storage.onnx; translation/source.spm; translation/vocab.json
+Changes: shared embedding reuse, FP16 storage and FP32 inference conversion; see CHANGES.txt.
+
+Related generation components
+CLIP BPE implementation: published OpenAI CLIP algorithm, MIT; https://github.com/openai/CLIP ; license copy CLIP_LICENSE.txt, Copyright (c) 2021 OpenAI. This notice does not replace the license of the Tiny-SD checkpoint.
+Scheduler coefficients: derived from Diffusers 0.35.1, Apache-2.0; https://github.com/huggingface/diffusers/tree/v0.35.1 ; license copy Apache-2.0.txt.
+
+The original notices, disclaimers and license terms are retained in the accompanying license copies. No endorsement by the original authors is claimed. Model file changes do not remove upstream conditions. Runtime library notices remain in this directory and the app's licenses directory.

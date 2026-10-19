@@ -8,7 +8,10 @@
   </Window.Resources>
   <Grid x:Name="ShellPage" Background="{DynamicResource PageBackground}">
     <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition/></Grid.RowDefinitions>
-    <Button x:Name="Settings" Content="⚙  설정" Click="SettingsClicked" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0" Padding="16,8"/>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,24,0">
+      <Button x:Name="Licenses" Content="라이선스" Click="LicensesClicked" Style="{StaticResource SecondaryButton}" Margin="0,0,10,0" Padding="16,8"/>
+      <Button x:Name="Settings" Content="⚙  설정" Click="SettingsClicked" Style="{StaticResource SecondaryButton}" Padding="16,8"/>
+    </StackPanel>
     <ContentControl x:Name="ScreenHost" Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
   <Grid Grid.Row="1" x:Name="MenuPage" ClipToBounds="True" Background="{DynamicResource PageBackground}">
     <Grid IsHitTestVisible="False" Focusable="False">
@@ -76,6 +79,22 @@
         </StackPanel>
 
         </ScrollViewer>
+      </Border>
+    </Grid>
+    <Grid x:Name="LicenseOverlay" Grid.Row="1" Visibility="Collapsed" Background="{DynamicResource Overlay}"
+          KeyboardNavigation.TabNavigation="Cycle" PreviewKeyDown="LicenseKeyDown">
+      <Border Style="{StaticResource Card}" MaxWidth="960" Margin="24" Padding="24">
+        <Grid>
+          <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+          <TextBlock Text="라이선스" FontSize="28" FontWeight="Bold" Margin="0,0,0,16"/>
+          <ComboBox x:Name="LicenseChoice" Grid.Row="1" AutomationProperties.Name="라이선스 문서" DisplayMemberPath="Title"
+                    SelectionChanged="LicenseSelectionChanged" Margin="0,0,0,16"/>
+          <TextBox x:Name="LicenseText" Grid.Row="2" IsReadOnly="True" IsReadOnlyCaretVisible="True" IsUndoEnabled="False"
+                   TextWrapping="Wrap" AcceptsReturn="True" FontSize="14" Padding="16" VerticalContentAlignment="Top"
+                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="라이선스 내용"/>
+          <Button x:Name="LicenseClose" Grid.Row="3" Content="닫기" Click="CloseLicenseClicked" Style="{StaticResource SecondaryButton}"
+                  HorizontalAlignment="Right" MinWidth="120" Margin="0,16,0,0"/>
+        </Grid>
       </Border>
     </Grid>
   </Grid>

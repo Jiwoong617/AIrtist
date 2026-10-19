@@ -68,6 +68,7 @@ internal static class LocalProcessSmoke
             await Until(() => worker.Snapshot.Waiting?.Players.All(p => p.Name != "접속 중") == true, "nicknames");
             OnlineSmoke.Require(worker.Snapshot.Waiting!.Players.Select(p => p.Name).Order().SequenceEqual(names.Take(participants).Order()), "Nicknames not synchronized");
             shell.SmokeSettings(index != 1, Path.Combine(output, "waiting-settings.png"));
+            await shell.SmokeLicensesAsync(Path.Combine(output, "licenses-waiting.png"));
             MenuWindow.Capture(shell, Path.Combine(output, "room.png"));
             string beforeSettings = worker.Snapshot.Waiting!.Revision;
             if (index != 0) room.SmokeWaitingReady();
@@ -96,6 +97,9 @@ internal static class LocalProcessSmoke
                 await Until(() => worker.Snapshot.Match?.RoundNumber == round && worker.Snapshot.Match.Round?.Submission.Phase == SubmissionClientPhase.Writing, "writing-" + round);
                 OnlineSmoke.Require(worker.Snapshot.Match!.Round!.Submission.FixedParameters == new GenerationParameters(6.5f, 8, 42), "Match lost fixed room parameters");
                 shell.SmokeSettings(round % 2 == 0, Path.Combine(output, $"round-{round}-settings.png"));
+                var remaining = worker.Snapshot.Match!.Round!.Submission.WritingRemaining;
+                await shell.SmokeLicensesAsync(Path.Combine(output, $"licenses-writing-{round}.png"), holdMs: 1100);
+                OnlineSmoke.Require(worker.Snapshot.Match!.Round!.Submission.WritingRemaining < remaining, "License paused the match timer");
                 game.OnlineSmokeDraw(index, index == 1 ? "길고 파란 물체" : "둥글고 붉은 물체");
                 await Until(() => worker.Snapshot.Match?.Round?.Gallery.CanVote == true, "gallery-" + round, realAi ? 300 : 45);
                 var artworks = worker.Snapshot.Match!.Round!.Gallery.Artworks;
@@ -104,6 +108,7 @@ internal static class LocalProcessSmoke
                 galleryHashes.Add(artworks.OrderBy(a => a.OwnerId, StringComparer.Ordinal).Select(a => a.Sha256).ToArray());
                 foreach (var art in artworks) File.WriteAllBytes(Path.Combine(output, $"round-{round}-{art.OwnerId}.png"), art.CopyPng());
                 game.OnlineSmokeRender(Path.Combine(output, $"gallery-{round}.png"));
+                await shell.SmokeLicensesAsync(Path.Combine(output, $"licenses-gallery-{round}.png"));
                 await Task.Delay(150); // Let the audio thread consume the newly displayed gallery transition.
                 int self = Array.IndexOf(roster, id); int[] targets = [1, 0, 1];
                 game.OnlineSmokeVote(roster[targets[self]]);
@@ -130,6 +135,7 @@ internal static class LocalProcessSmoke
                 final.Winners.All(p => p.Votes == expectedVotes.Max() * rounds) && final.TotalVotes == participants * rounds,
                 "Final cumulative winner/tie differs");
             shell.SmokeSettings(index != 1, Path.Combine(output, "final-settings.png"));
+            await shell.SmokeLicensesAsync(Path.Combine(output, "licenses-final.png"));
             MenuWindow.Capture(shell, Path.Combine(output, "final-results.png"));
             File.WriteAllText(Path.Combine(output, "final.json"), JsonSerializer.Serialize(final, RuntimeAssets.Json));
             File.WriteAllText(Path.Combine(output, "final-shown.txt"), "shown");
@@ -165,6 +171,7 @@ internal static class LocalProcessSmoke
             }
             return new { status = "passed", index, processId = Environment.ProcessId, id, roster, rounds, realAi, eos = onlineHost && index == 0,
                 singleWindow = true, nicknames = true, settingsResetReadiness = true, fixedParameters = true,
+                licensesEverywhere = true, licenseKeepsTimerRunning = true,
                 tcpLoopback = true, boundaryChecks = index == 0, automaticEosFallback = onlineHost && index == 0,
                 galleryHashes, votes = expectedVotes, galleryAccessibility = true, hostLeave = true,
                 finalResults = final, finalScreenSynchronized = true, finalSurvivedHostLeave = index != 0, returnedToMain = true,

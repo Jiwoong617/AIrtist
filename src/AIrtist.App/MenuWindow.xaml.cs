@@ -34,6 +34,7 @@ public partial class MenuWindow : Window
         this.ai = ai ?? new SerializedDrawingAi(new LocalDrawingAi(assets)); onlineWorker = worker;
         settings = GameSettings.Load(settingsPath); ThemeManager.Apply(settings.DarkMode);
         audio = sound ?? new GameAudio(); audio.Volume(settings.Bgm, settings.Sfx); audio.Music(MusicTrack.Menu);
+        LicenseChoice.ItemsSource = LicenseDocument.All;
         Closed += (_, _) => audio.Dispose();
         Resolution.ItemsSource = GameSettings.Sizes.Select(s => $"{s.Width} × {s.Height}").ToArray();
         settings.Apply(this);
@@ -97,6 +98,7 @@ public partial class MenuWindow : Window
     private void SettingsClicked(object sender, RoutedEventArgs e)
     {
         if (SettingsOverlay.Visibility == Visibility.Visible) { BackClicked(sender, e); return; }
+        LicenseOverlay.Visibility = Visibility.Collapsed;
         Resolution.SelectedIndex = Array.IndexOf(GameSettings.Sizes, (settings.Width, settings.Height));
         Bgm.Value = settings.Bgm; Sfx.Value = settings.Sfx; ThemeChoice.SelectedIndex = settings.DarkMode ? 1 : 0;
         SettingsOverlay.Visibility = Visibility.Visible; ScreenHost.IsEnabled = MenuPage.IsEnabled = false;
